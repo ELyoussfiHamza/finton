@@ -13,4 +13,8 @@ public:
 
     Request(Request&&) noexcept = default;
     Request& operator=(Request&&) noexcept = default;
+
+    int GetId(){
+        return _id;
+       }
 };

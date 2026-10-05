@@ -1,4 +1,4 @@
-
+#pragma once
 #include <vector>
 #include <thread> 
 #include <functional>
@@ -14,6 +14,7 @@ public:
 
     void InitiateWorkers(std::function<void()> task);
 
-    void Task();
+    
+    
 
 };
