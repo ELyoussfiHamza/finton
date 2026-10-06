@@ -23,11 +23,20 @@ int Scheduler::GetMaxBatchSize(){
 
 std::optional<std::vector<Request>> Scheduler::PullRequests(){
     // wait for maxdely
-    std::unique_lock<std::mutex> lock(mtx);
+    // By default is an abort shutdown 
+    std::unique_lock<std::mutex> lock(m);
     std::vector<Request> Batch;
     Batch.reserve(MaxBatchSize);
     auto FirstRequest = MainQueue.NextRequestBlocking();    
+    if (FirstRequest == std::nullopt){
+        // Is stopping 
+        return std::nullopt;
+    }
     Batch.push_back(std::move(*FirstRequest));
+    if (MainQueue.GetIStopping()){
+        return Batch;
+    }
+
     auto EndPoint = std::chrono::steady_clock::now() + MaxDelay;
     while (true){
         if (Batch.size() == MaxBatchSize) break;
@@ -35,17 +44,18 @@ std::optional<std::vector<Request>> Scheduler::PullRequests(){
         if (request != std::nullopt){
             Batch.push_back(std::move(*request));
         }else{
-            // timeout 
+            // timeout  or shutdown
             break;
         }
     }
     return Batch;
-    
 }
 
 bool Scheduler::SubmitRequest(Request&& req){
-    
     bool _outcome = MainQueue.EnqueRequest(std::move(req));
-
     return _outcome;
+}
+
+void Scheduler::ForwardShutDown(){
+    MainQueue.Shutdown();
 }

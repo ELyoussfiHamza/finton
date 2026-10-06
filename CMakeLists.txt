@@ -17,7 +17,8 @@ add_library(finton_core
 
 target_include_directories(finton_core PUBLIC src/header)
 target_link_libraries(finton_core PUBLIC Threads::Threads)
-target_compile_options(finton_core PRIVATE -Wall -Wextra -fsanitize=thread -g)
+target_compile_options(finton_core PUBLIC -Wall -Wextra -fsanitize=thread -g)
+target_link_options(finton_core PUBLIC -fsanitize=thread)
 
 add_executable(finton src/main.cpp)
 target_link_libraries(finton PRIVATE finton_core)

@@ -13,7 +13,7 @@ private:
     std::chrono::milliseconds MaxDelay; // Wait for requests before submitting a batch
     int MaxBatchSize; // The maxSize of a batch : never surpassed
     Queue MainQueue;
-    std::mutex mtx; // This mutex is not to protect the queue (has its own)
+    std::mutex m; // This mutex is not to protect the queue (has its own)
     // Its for ensuring one thread is constructing the batch at a time therefore
     // we avoid having two or more half filled batch
 public:
@@ -28,4 +28,5 @@ public:
     std::optional<std::vector<Request>> PullRequests();
 
     bool SubmitRequest(Request&& req);
+    void ForwardShutDown();
 };

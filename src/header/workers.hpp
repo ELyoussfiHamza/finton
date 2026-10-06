@@ -2,7 +2,7 @@
 #include <vector>
 #include <thread> 
 #include <functional>
-
+#include "scheduler.hpp"
 
 class Workers {
 private:
@@ -12,9 +12,11 @@ public:
 
     Workers(int max);
 
-    void InitiateWorkers(std::function<void()> task);
+    ~Workers();
+    void InitiateWorkers(std::function<void(Scheduler& , int)> task , Scheduler& scheduler );
+
+    void Task(Scheduler& sch , int thread_id );
+
 
     
-    
-
 };
