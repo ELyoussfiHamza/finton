@@ -12,10 +12,12 @@ find_package(Threads REQUIRED)
 add_library(finton_core
     src/lib/queue.c++
     src/lib/scheduler.c++
+    src/lib/workers.c++
 )
+
 target_include_directories(finton_core PUBLIC src/header)
 target_link_libraries(finton_core PUBLIC Threads::Threads)
-target_compile_options(finton_core PRIVATE -Wall -Wextra)
+target_compile_options(finton_core PRIVATE -Wall -Wextra -fsanitize=thread -g)
 
 add_executable(finton src/main.cpp)
 target_link_libraries(finton PRIVATE finton_core)

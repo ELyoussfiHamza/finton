@@ -28,7 +28,6 @@ std::optional<std::vector<Request>> Scheduler::PullRequests(){
     Batch.reserve(MaxBatchSize);
     auto FirstRequest = MainQueue.NextRequestBlocking();    
     Batch.push_back(std::move(*FirstRequest));
-
     auto EndPoint = std::chrono::steady_clock::now() + MaxDelay;
     while (true){
         if (Batch.size() == MaxBatchSize) break;
