@@ -7,16 +7,25 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Threads REQUIRED)
 
+# JSON library (header-only). Downloaded once at configure time into the build
+# directory, so nothing has to be installed on the machine.
+include(FetchContent)
+FetchContent_Declare(json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+)
+FetchContent_MakeAvailable(json)
+
 # Everything except main() lives in this library so tests can link it later.
 # Add each new source file to this list.
 add_library(finton_core
     src/lib/queue.c++
     src/lib/scheduler.c++
     src/lib/workers.c++
+    src/lib/server.c++
 )
 
 target_include_directories(finton_core PUBLIC src/header)
-target_link_libraries(finton_core PUBLIC Threads::Threads)
+target_link_libraries(finton_core PUBLIC Threads::Threads nlohmann_json::nlohmann_json)
 target_compile_options(finton_core PUBLIC -Wall -Wextra -g)
 
 # ThreadSanitizer finds data races but makes the program 5-15x slower, so
