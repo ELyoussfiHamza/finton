@@ -13,9 +13,9 @@ public:
     Workers(int max);
 
     ~Workers();
-    void InitiateWorkers(std::function<void(Scheduler& , int)> task , Scheduler& scheduler );
+    void InitiateWorkers(std::function<void(Scheduler& )> task , Scheduler& scheduler );
 
-    void Task(Scheduler& sch , int thread_id );
+    void Task(Scheduler& sch  );
 
 
     

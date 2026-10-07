@@ -14,14 +14,14 @@ Workers::~Workers(){
     }
 }
 
-void Workers::InitiateWorkers(std::function<void(Scheduler& , int)> task , Scheduler& scheduler){
+void Workers::InitiateWorkers(std::function<void(Scheduler&)> task , Scheduler& scheduler){
 
     for (int i = 0 ; i < MaxPoolWorkers ; i++){
-        Pool.emplace_back(task ,std::ref(scheduler),i);
+        Pool.emplace_back(task ,std::ref(scheduler));
     }
 }
 
-void Workers::Task(Scheduler& scheduler , int thread_int){
+void Workers::Task(Scheduler& scheduler){
 
     while (1){
         auto Batch = scheduler.PullRequests();
@@ -30,12 +30,15 @@ void Workers::Task(Scheduler& scheduler , int thread_int){
             break;
         }
         auto& ReqVec = Batch.value();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         for (int i = 0 ;i< ReqVec.size() ; i++){
             auto Id = ReqVec[i].GetId();
-            std::cout <<"Processing " << Id << std::endl;
-        }
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        
+            auto ResToVec = Response(Id , i);
+            ReqVec[i].SetValue(ResToVec);
+        }  
+
     }
 }
+
+
 

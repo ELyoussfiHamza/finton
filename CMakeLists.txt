@@ -17,8 +17,16 @@ add_library(finton_core
 
 target_include_directories(finton_core PUBLIC src/header)
 target_link_libraries(finton_core PUBLIC Threads::Threads)
-target_compile_options(finton_core PUBLIC -Wall -Wextra -fsanitize=thread -g)
-target_link_options(finton_core PUBLIC -fsanitize=thread)
+target_compile_options(finton_core PUBLIC -Wall -Wextra -g)
+
+# ThreadSanitizer finds data races but makes the program 5-15x slower, so
+# timings from a sanitized build mean nothing. Turn it off to measure :
+#   cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DFINTON_TSAN=OFF
+option(FINTON_TSAN "Instrument with ThreadSanitizer" ON)
+if(FINTON_TSAN)
+    target_compile_options(finton_core PUBLIC -fsanitize=thread)
+    target_link_options(finton_core PUBLIC -fsanitize=thread)
+endif()
 
 add_executable(finton src/main.cpp)
 target_link_libraries(finton PRIVATE finton_core)

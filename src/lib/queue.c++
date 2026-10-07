@@ -35,7 +35,7 @@ std::optional<Request> Queue::NextRequest(const std::chrono::steady_clock::time_
     auto Success =  cv.wait_until(lock ,TimePoint, [&_q,&Istopping] { return _q.size() > 0 || Istopping;});
     
     if (!Success or Istopping){
-        // Doube check : Success= False in case the istopping is True
+        
         return std::nullopt;
     }
 
