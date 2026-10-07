@@ -11,31 +11,15 @@ void Queue::SetMaxSize(int _MaxSize){
     std::unique_lock<std::mutex> lock(mtx);  
     MaxSize = _MaxSize;
 }
-void Queue::SetIStopping(bool New){
-    std::unique_lock<std::mutex> lock(mtx);  
-    IStopping = New; 
-}
-
-
-// void Queue::SetStoppingPolicy(StoppingPolicy newPolicy){
-//     std::unique_lock<std::mutex> lock(mtx);  
-//     Sp = newPolicy;
-// }
-
-bool Queue::GetIStopping () {
-    std::unique_lock<std::mutex> lock(mtx);
-    return IStopping;
-}
 
 std::optional<Request> Queue::NextRequest(const std::chrono::steady_clock::time_point& TimePoint){
     std::unique_lock<std::mutex> lock(mtx);
-    // For now we won't wait (CPU expensive) to fix later with cv
-    auto& _q = RequestQueue; 
-     auto& Istopping = IStopping;
+    auto& _q = RequestQueue;
+    auto& Istopping = IStopping;
     auto Success =  cv.wait_until(lock ,TimePoint, [&_q,&Istopping] { return _q.size() > 0 || Istopping;});
-    
-    if (!Success or Istopping){
-        
+
+    // Draining : while stopping we keep handing out what is still queued
+    if (!Success or (Istopping and _q.size() == 0) ){
         return std::nullopt;
     }
 
@@ -52,26 +36,21 @@ std::optional<Request> Queue::NextRequestBlocking(){
 
     cv.wait(lock , [&_q , &Istopping] { return  _q.size() > 0 || Istopping ;});
     
-    if (Istopping){
+    if (Istopping && _q.size() == 0){
         return std::nullopt;
     }
-    
-
     Request Next = std::move(RequestQueue.front());
     RequestQueue.pop();
     return Next;
 }
 
 bool Queue::EnqueRequest(Request&& req){
-
     std::unique_lock<std::mutex> lock(mtx);
     if (IStopping){
         return false;
     }
     int _size = RequestQueue.size();
     if (_size >= MaxSize){
-        lock.unlock();
-        std::cout << "The queue is full; request rejected." << std::endl;
         return false;
     }
     RequestQueue.push(std::move(req));
@@ -80,6 +59,7 @@ bool Queue::EnqueRequest(Request&& req){
 }
 
 void Queue::Shutdown(){
-    SetIStopping(true);
+    std::unique_lock<std::mutex> lock(mtx);  
+    IStopping = true; 
     cv.notify_all();
 }

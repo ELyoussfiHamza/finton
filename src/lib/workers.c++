@@ -26,15 +26,18 @@ void Workers::Task(Scheduler& scheduler){
     while (1){
         auto Batch = scheduler.PullRequests();
         if (Batch == std::nullopt){
-            std::cout << "Likely shutdown" << std::endl;
             break;
         }
         auto& ReqVec = Batch.value();
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        for (int i = 0 ;i< ReqVec.size() ; i++){
-            auto Id = ReqVec[i].GetId();
+        // Fake backend : one call for the whole batch, a fixed overhead plus a
+        // cost per request. This ratio is what makes batching pay off.
+        std::this_thread::sleep_for(std::chrono::milliseconds(10 + ReqVec.size()));
+        int i = 0;
+        for (auto& Req : ReqVec){
+            auto Id = Req.GetId();
             auto ResToVec = Response(Id , i);
-            ReqVec[i].SetValue(ResToVec);
+            i++;
+            Req.SetValue(ResToVec);
         }  
 
     }

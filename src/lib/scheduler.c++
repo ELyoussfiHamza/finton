@@ -1,17 +1,12 @@
 #include "scheduler.hpp"
+#include <algorithm>
 #include <mutex>
 
 
 
-Scheduler::Scheduler(std::chrono::milliseconds md , int mbs ,int mqs) : MaxDelay(md) , MaxBatchSize(mbs),MainQueue(mqs){};
+Scheduler::Scheduler(std::chrono::milliseconds md , int mbs ,int mqs) : MaxDelay(md) , MaxBatchSize(std::max(1,mbs)),MainQueue(mqs){};
 
-void Scheduler::SetMaxBatchSize(int mbs){
-    MaxBatchSize = mbs;
-}
 
-void Scheduler::SetMaxDelay( std::chrono::milliseconds md){
-    MaxDelay = md;
-}
 
 std::chrono::milliseconds Scheduler::GetMaxDelay(){
     return MaxDelay;
@@ -22,24 +17,21 @@ int Scheduler::GetMaxBatchSize(){
 }
 
 std::optional<std::vector<Request>> Scheduler::PullRequests(){
-    // wait for maxdely
-    // By default is an abort shutdown 
+    // Shutdown is a drain : batches keep coming until the queue is empty
     std::unique_lock<std::mutex> lock(m);
     std::vector<Request> Batch;
     Batch.reserve(MaxBatchSize);
-    auto FirstRequest = MainQueue.NextRequestBlocking();    
+    auto FirstRequest = MainQueue.NextRequestBlocking();
     if (FirstRequest == std::nullopt){
-        // Is stopping 
+        // Stopping and nothing left to drain
         return std::nullopt;
     }
     Batch.push_back(std::move(*FirstRequest));
-    if (MainQueue.GetIStopping()){
-        return Batch;
-    }
 
-    auto EndPoint = std::chrono::steady_clock::now() + MaxDelay;
+    // The delay counts from the arrival of the oldest request of the batch
+    auto EndPoint = Batch[0].GetArrival() + MaxDelay;
     while (true){
-        if (Batch.size() == MaxBatchSize) break;
+        if (Batch.size() >= MaxBatchSize) break;
         auto request = MainQueue.NextRequest(EndPoint);
         if (request != std::nullopt){
             Batch.push_back(std::move(*request));

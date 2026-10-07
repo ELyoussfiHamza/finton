@@ -22,8 +22,6 @@ public:
     std::optional<Request> NextRequestBlocking();
     
     void SetMaxSize(int size);
-    void SetIStopping(bool New);
-    bool GetIStopping ();
 
     void Shutdown();
 };
