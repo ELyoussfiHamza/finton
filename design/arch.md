@@ -14,7 +14,7 @@ The goal is to understand the trade-off between latency and throughput, and to s
 
 ![Request lifecycle](HLD_request_lifecycle.png)
 
-The HTTP server is not built yet. For now a load generator in `src/main.cpp` plays the role of the clients and of the HTTP threads, and calls the scheduler directly.
+Clients reach finton through an HTTP server (see 3.11). A fixed pool of HTTP threads serves the connections, and each thread handles one client at a time.
 
 A request goes through these steps:
 
@@ -111,7 +111,29 @@ The alternative was to abort: stop at once and drop what is queued. Draining was
 
 It works with a single flag inside the queue, set under the queue's lock, followed by a wake-up of every waiting thread. A thread waiting for a request wakes when the queue is not empty, or when the server is stopping. It gets "nothing" only when the server is stopping and the queue is empty, so the workers keep taking batches until nothing is left. The flag can only be set, never cleared, so a stopped server cannot start accepting requests that no worker would ever process.
 
-When the HTTP layer exists, the order will be: stop accepting connections, drain the queue, then join the workers.
+With the HTTP layer, a stop (Ctrl-C or `kill`) happens in this order:
+
+1. The server stops accepting connections.
+2. The HTTP threads finish the requests they have already received, then exit. The workers are still running during this step, because those threads are waiting on them.
+3. The scheduler is told to stop. The queue is empty by then, so the workers leave their loop and are joined.
+
+### 3.11 A pool of HTTP threads, one connection per thread
+
+One thread only accepts connections and pushes them into a bounded waiting line. A fixed pool of HTTP threads takes them from there. A thread owns its connection from the first read to the close: it reads and parses the request, submits it, sleeps on the future, and writes the response.
+
+The first version handled everything in the accept loop, so the server served one client at a time and the queue never held more than one request. Batching needs many requests in flight at once.
+
+The alternative was an event loop: non-blocking sockets and `epoll`, with one thread watching every connection. It scales to far more connections, but no thread can sleep on a future, so the workers would have to notify the loop instead. The pool was chosen because it fits the promise and future of 3.9 with no change, and because it keeps the event loop as a later step that can be measured against this one.
+
+What follows from this choice:
+
+- **The pool size is the most requests that can be in flight.** Each thread sleeps while its request is in the scheduler. The pool must be larger than `MaxBatchSize` times the number of workers, or the batches can never fill.
+- **Overload is refused at two levels.** When every thread is busy and the waiting line is full, a new connection gets a `503` at once. When the scheduler queue is full, the request gets a `503` (see 3.2).
+- **A silent client is dropped after a timeout.** Otherwise it would hold a thread for as long as it likes.
+- **Connections are kept alive.** A client can send several requests on one connection, so a measurement does not pay for a new TCP connection on every request.
+- **Sizes are limited before the data is read.** The head (request line and headers) has a small limit. The body has a much larger one, checked against the declared `Content-Length`, so an oversized body is refused before it is received.
+
+The HTTP layer was written by Claude, with the decisions above taken together. The queue, the scheduler and the workers are written by hand.
 
 ## 4. What the simulated runs showed
 
@@ -125,23 +147,25 @@ Together these say that the right settings depend on the load, which is the reas
 
 ## 5. Limits and next steps
 
-What exists today is the core: queue, scheduler, worker pool, response path and shutdown. It is exercised by a load generator and checked with ThreadSanitizer.
+What exists today is the core (queue, scheduler, worker pool, response path and shutdown) and the HTTP server in front of it. It is checked with ThreadSanitizer.
 
 Known limits:
 
-- There is no network layer. Requests come from threads inside the same program.
 - The backend is simulated. No model is loaded or run.
-- A request has an id but no input data yet.
+- A request has an id but no input data yet. The HTTP server receives the body of `POST /infer` and does not pass it on.
 - There is one scheduler and one queue, so one model.
 - The queue is first in, first out only. There are no priorities.
 - The scheduler takes requests from the queue one at a time, with one lock each. Taking several under one lock would reduce contention.
+- An HTTP thread is held by its connection even when the client is idle between two requests. An event loop would remove this limit.
+- A large body is parsed again each time a new piece of it arrives.
 
 Next steps, in order:
 
-1. An HTTP front end in place of the load generator.
-2. A real backend with ONNX Runtime, and real input and output data in requests.
-3. Measurements on a real model: batch size, delay, number of workers and threads per worker.
-4. Several models, each with its own scheduler.
+1. Real input and output data in requests, sent as raw bytes (`application/octet-stream`).
+2. A real backend with ONNX Runtime, with a small file that describes the model.
+3. Real batching: the inputs of a batch joined into one tensor, one call to the model.
+4. Measurements on a real model: batch size, delay, number of workers and threads per worker.
+5. Several models, each with its own scheduler.
 
 
 ## Appendix: the first sketch
