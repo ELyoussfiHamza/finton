@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="finton logo">
+  <title>finton</title>
+  <rect width="512" height="512" rx="112" fill="#1B1F3B"/>
+
+  <!-- requests arriving one by one -->
+  <g fill="#8FA3FF">
+    <circle cx="150" cy="84" r="11"/>
+    <circle cx="214" cy="60" r="8"/>
+    <circle cx="262" cy="96" r="12"/>
+    <circle cx="322" cy="66" r="9"/>
+    <circle cx="368" cy="98" r="10"/>
+  </g>
+
+  <!-- teats : the workers -->
+  <g fill="#F07A9B">
+    <rect x="137" y="268" width="42" height="110" rx="21"/>
+    <rect x="204" y="300" width="42" height="96" rx="21"/>
+    <rect x="266" y="300" width="42" height="96" rx="21"/>
+    <rect x="333" y="268" width="42" height="110" rx="21"/>
+  </g>
+
+  <!-- udder : the queue where requests gather into a batch -->
+  <path fill="#FFB3C7" d="M92 178 Q92 134 136 134 H376 Q420 134 420 178 C420 284 352 344 256 344 C160 344 92 284 92 178 Z"/>
+  <path fill="#FFD0DC" d="M128 180 Q128 162 146 162 H250 Q232 172 200 176 Q160 182 150 214 Q128 208 128 180 Z"/>
+
+  <!-- one batch out : every drop leaves together -->
+  <g fill="#FFFFFF">
+    <path d="M158 414 C158 414 142 438 142 450 A16 16 0 0 0 174 450 C174 438 158 414 158 414 Z"/>
+    <path d="M225 414 C225 414 209 438 209 450 A16 16 0 0 0 241 450 C241 438 225 414 225 414 Z"/>
+    <path d="M287 414 C287 414 271 438 271 450 A16 16 0 0 0 303 450 C303 438 287 414 287 414 Z"/>
+    <path d="M354 414 C354 414 338 438 338 450 A16 16 0 0 0 370 450 C370 438 354 414 354 414 Z"/>
+  </g>
+</svg>
