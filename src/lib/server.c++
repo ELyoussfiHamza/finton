@@ -13,9 +13,6 @@
 #include <cstring>
 #include <system_error>
 
-// send can accept fewer bytes than asked, so we loop until everything is gone.
-// MSG_NOSIGNAL : a client that already left gives an error here instead of a
-// SIGPIPE that would kill the whole server.
 static bool SendAll(int fd, const std::string& data){
     std::size_t sent = 0;
     while (sent < data.size()){
@@ -52,8 +49,6 @@ static bool SendResponse(int fd, int status, const std::string& body, bool keep_
     return SendAll(fd, response);
 }
 
-// HTTP/1.1 keeps the connection open unless the client says close.
-// HTTP/1.0 closes it unless the client says keep-alive.
 static bool WantsKeepAlive(const HttpRequest& http){
     std::string connection = http.Header("connection").value_or("");
     std::transform(connection.begin(), connection.end(), connection.begin(),
@@ -76,16 +71,10 @@ Server::~Server(){
 }
 
 void Server::Stop(){
-    // Only a write : this is one of the few things allowed in a signal handler
     std::uint64_t one = 1;
     [[maybe_unused]] ssize_t n = write(StopFd, &one, sizeof(one));
 }
 
-// Reads until one full request is in `raw`, TCP can deliver it in pieces.
-// `raw` belongs to the connection : with keep-alive it may already hold the
-// start of the next request, so only the bytes of this request are removed.
-// Returns 200 with the request in `request`, an error status to answer with,
-// or 0 when there is nobody to answer and the connection must be closed.
 int Server::ReadRequest(int client_fd, std::string& raw, HttpRequest& request){
     char buffer[16384];
     while (true){
@@ -95,7 +84,6 @@ int Server::ReadRequest(int client_fd, std::string& raw, HttpRequest& request){
                 raw.erase(0, raw.find("\r\n\r\n") + 4 + request.body.size());
                 return 200;
             }catch (const HttpIncompleteError&){
-                // read more
             }catch (const HttpHeaderMax& e){
                 std::cerr << e.what() << std::endl;
                 return 431;
@@ -108,8 +96,6 @@ int Server::ReadRequest(int client_fd, std::string& raw, HttpRequest& request){
             }
         }
 
-        // Sleep until the client sends something. Between two requests we also
-        // wake when the server stops ; in the middle of a request we finish it.
         struct pollfd fds[2] = {{client_fd, POLLIN, 0}, {StopFd, POLLIN, 0}};
         int watched = raw.empty() ? 2 : 1;
         int ready = poll(fds, watched, Config.IdleTimeoutSeconds * 1000);
@@ -127,7 +113,6 @@ int Server::ReadRequest(int client_fd, std::string& raw, HttpRequest& request){
             return 0;
         }
         if (fds[0].revents == 0){
-            // Only the stop event : idle connection, server stopping
             return 0;
         }
 
@@ -153,14 +138,11 @@ Server::Answer Server::Respond(const HttpRequest& http){
         return {200, R"({"status":"ok"})"};
     }
     if (http.method == "POST" && http.path == "/infer"){
-        // The request does not carry http.body yet : Request only has an id
         Request request(NextRequestId++);
         auto future = request.GetFuture();
         if (!MainScheduler.SubmitRequest(std::move(request))){
-            // Queue full or scheduler stopping
             return {503, ""};
         }
-        // Sleeps here until a worker fulfils the promise
         Response result = future.get();
         return {200, "{\"request_id\":" + std::to_string(result.request_id) +
                      ",\"result\":" + std::to_string(result.result) + "}"};
@@ -169,12 +151,10 @@ Server::Answer Server::Respond(const HttpRequest& http){
 }
 
 void Server::HandleConnection(int client_fd){
-    // A client that stops reading must not block this thread forever
     struct timeval timeout {};
     timeout.tv_sec = Config.IdleTimeoutSeconds;
     setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
-    // An exception leaving a thread kills the process, so nothing escapes from here
     try{
         std::string raw;
         bool keep_alive = true;
@@ -188,7 +168,6 @@ void Server::HandleConnection(int client_fd){
             if (status == 200){
                 answer = Respond(http);
             }
-            // After a request we could not read, we no longer know where the next one starts
             keep_alive = status == 200 && WantsKeepAlive(http) && !Stopping;
             if (!SendResponse(client_fd, answer.status, answer.body, keep_alive)){
                 break;
@@ -210,7 +189,6 @@ void Server::ConnectionLoop(){
             std::unique_lock<std::mutex> lock(PendingMutex);
             PendingCv.wait(lock, [this]{ return !Pending.empty() || Draining; });
             if (Pending.empty()){
-                // Draining and nothing left
                 return;
             }
             client_fd = Pending.front();
@@ -260,10 +238,9 @@ int Server::StartServer(){
     }
 
     std::cout << "Your wonderful hand written lol server is listening on " << Config.Port << std::endl;
-    //accept loop : this thread only accepts, the pool serves the clients
+    //accept loop
     struct pollfd fds[2] = {{ServerSocket, POLLIN, 0}, {StopFd, POLLIN, 0}};
     while (true){
-        // Sleep until a client connects or Stop() is called
         if (poll(fds, 2, -1) == -1){
             if (errno == EINTR){
                 continue;
@@ -281,7 +258,6 @@ int Server::StartServer(){
             continue;
         }
 
-        // From the push on, the thread that pops client_fd owns it and closes it
         bool queued = false;
         {
             std::unique_lock<std::mutex> lock(PendingMutex);
@@ -293,13 +269,11 @@ int Server::StartServer(){
         if (queued){
             PendingCv.notify_one();
         }else{
-            // Every thread is busy and the waiting line is full
             SendResponse(client_fd, 503, "", false);
             close(client_fd);
         }
     }
 
-    // Stop accepting, then let the threads finish what was already accepted
     std::cout << "Stopping : finishing the requests in progress" << std::endl;
     close(ServerSocket);
     Stopping = true;

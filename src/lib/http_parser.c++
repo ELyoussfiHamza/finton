@@ -40,8 +40,6 @@ static void ParseRequestLine(const std::string& line, HttpRequest& request){
     }
 }
 
-// "Content-Type: application/json" : the same code handles every header,
-// whatever its name and wherever it appears.
 static void ParseHeaderLine(const std::string& line, HttpRequest& request){
     auto colon = line.find(':');
     if (colon == std::string::npos || colon == 0){
@@ -54,13 +52,11 @@ static void ParseHeaderLine(const std::string& line, HttpRequest& request){
     request.headers[ToLower(name)] = Trim(line.substr(colon + 1));
 }
 
-// A missing Content-Length means there is no body.
 static std::size_t BodyLength(const HttpRequest& request,size_t cap){
     auto value = request.Header("content-length");
     if (!value){
         return 0;
     }
-    // Digits only, and short enough that the conversion cannot overflow.
     bool digits = !value->empty() && value->size() <= 9 &&
                   std::all_of(value->begin(), value->end(),
                               [](unsigned char c){ return std::isdigit(c); });
@@ -77,7 +73,6 @@ static std::size_t BodyLength(const HttpRequest& request,size_t cap){
 HttpRequest ParseHttpRequest(const std::string& raw , size_t header_cap , size_t body_cap){
     const std::string LineEnd = "\r\n";
 
-    // A blank line separates the head (request line + headers) from the body.
     auto head_end = raw.find("\r\n\r\n");
     if (head_end == std::string::npos){
 

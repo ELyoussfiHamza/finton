@@ -9,7 +9,6 @@ public:
     using std::runtime_error::runtime_error;
 };
 
-
 class HttpIncompleteError : public HttpParseError{
 public:
     using HttpParseError::HttpParseError;

@@ -8,7 +8,6 @@
 
 static Server* RunningServer = nullptr;
 
-// Ctrl-C or kill : ask the server to stop, the real work happens in main
 static void OnStopSignal(int){
     int saved = errno;
     if (RunningServer != nullptr){
@@ -17,7 +16,6 @@ static void OnStopSignal(int){
     errno = saved;
 }
 
-// Usage : finton [port]
 int main(int argc, char** argv){
     ServerConfig config;
     config.Port = argc > 1 ? std::atoi(argv[1]) : 3001;
@@ -43,11 +41,8 @@ int main(int argc, char** argv){
     sigaction(SIGINT, &action, nullptr);
     sigaction(SIGTERM, &action, nullptr);
 
-    // Returns once the HTTP threads have answered everything they had received.
-    // The workers must still be running during that time.
     int outcome = srv.StartServer();
 
-    // Lets the workers leave their loop, otherwise ~Workers would join forever
     scheduler.ForwardShutDown();
     return outcome;
 }
