@@ -22,6 +22,7 @@ add_library(finton_core
     src/lib/scheduler.c++
     src/lib/workers.c++
     src/lib/server.c++
+    src/lib/http_parser.c++
 )
 
 target_include_directories(finton_core PUBLIC src/header)
@@ -39,3 +40,9 @@ endif()
 
 add_executable(finton src/main.cpp)
 target_link_libraries(finton PRIVATE finton_core)
+
+# Tests : build, then run with  ctest --test-dir build --output-on-failure
+enable_testing()
+add_executable(http_parser_test tests/http_parser_test.cpp)
+target_link_libraries(http_parser_test PRIVATE finton_core)
+add_test(NAME http_parser COMMAND http_parser_test)
