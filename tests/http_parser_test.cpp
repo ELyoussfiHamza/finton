@@ -6,6 +6,14 @@
 
 static int Failures = 0;
 
+// Same limits as main.cpp.
+static const std::size_t HeaderCap = 8000;
+static const std::size_t BodyCap = 10000000;
+
+static HttpRequest Parse(const std::string& raw){
+    return ParseHttpRequest(raw, HeaderCap, BodyCap);
+}
+
 static void Check(bool condition, const std::string& what){
     if (!condition){
         std::cout << "FAIL : " << what << std::endl;
@@ -17,7 +25,7 @@ static void Check(bool condition, const std::string& what){
 template <typename E>
 static bool Throws(const std::string& raw){
     try{
-        ParseHttpRequest(raw);
+        Parse(raw);
     }catch (const E&){
         return true;
     }catch (...){
@@ -33,7 +41,7 @@ static bool Malformed(const std::string& raw){
 
 int main(){
     {   // GET without a body
-        auto r = ParseHttpRequest(
+        auto r = Parse(
             "GET /health HTTP/1.1\r\nHost: localhost:3001\r\nAccept: */*\r\n\r\n");
         Check(r.method == "GET", "GET : method");
         Check(r.path == "/health", "GET : path");
@@ -44,7 +52,7 @@ int main(){
     }
     {   // what curl sends for a JSON POST
         std::string body = R"({"id": 1, "input": [1.0, 2.5, 3.0]})";
-        auto r = ParseHttpRequest(
+        auto r = Parse(
             "POST /infer HTTP/1.1\r\nHost: localhost:3001\r\nUser-Agent: curl/7.81.0\r\n"
             "Accept: */*\r\nContent-Type: application/json\r\nContent-Length: " +
             std::to_string(body.size()) + "\r\n\r\n" + body);
@@ -53,7 +61,7 @@ int main(){
         Check(r.body == body, "POST : body");
     }
     {   // other order, lowercase names, no space after the colon, spaces in a value
-        auto r = ParseHttpRequest(
+        auto r = Parse(
             "POST /infer HTTP/1.1\r\ncontent-length:2\r\n"
             "User-Agent: Mozilla/5.0 (X11; Linux x86_64)\r\nCONTENT-TYPE:  application/json  \r\n\r\nok");
         Check(r.body == "ok", "order : body");
@@ -61,11 +69,11 @@ int main(){
         Check(r.Header("user-agent") == "Mozilla/5.0 (X11; Linux x86_64)", "order : value with spaces");
     }
     {   // bytes after the body are not part of this request
-        auto r = ParseHttpRequest("POST /infer HTTP/1.1\r\nContent-Length: 2\r\n\r\nokEXTRA");
+        auto r = Parse("POST /infer HTTP/1.1\r\nContent-Length: 2\r\n\r\nokEXTRA");
         Check(r.body == "ok", "extra bytes : body stops at Content-Length");
     }
     {   // no headers at all
-        auto r = ParseHttpRequest("GET / HTTP/1.1\r\n\r\n");
+        auto r = Parse("GET / HTTP/1.1\r\n\r\n");
         Check(r.path == "/" && r.headers.empty(), "no headers");
     }
 
@@ -85,6 +93,21 @@ int main(){
     Check(Malformed("POST / HTTP/1.1\r\nContent-Length: abc\r\n\r\n"), "malformed : non-numeric length");
     Check(Malformed("POST / HTTP/1.1\r\nContent-Length: -5\r\n\r\n"), "malformed : negative length");
     Check(Malformed("POST / HTTP/1.1\r\nContent-Length: 99999999999999999999\r\n\r\n"), "malformed : huge length");
+
+    // The request is over a size limit
+    std::string long_header = "GET / HTTP/1.1\r\nX-Pad: " + std::string(HeaderCap, 'a');
+    Check(Throws<HttpHeaderMax>(long_header), "too large : head over the cap, no blank line yet");
+    Check(Throws<HttpHeaderMax>(long_header + "\r\n\r\n"), "too large : head over the cap, arrived whole");
+    Check(Throws<HttpBodyMax>("POST / HTTP/1.1\r\nContent-Length: " + std::to_string(BodyCap + 1) + "\r\n\r\n"),
+          "too large : Content-Length over the cap");
+
+    // The header cap must not limit the body
+    std::string big_body(HeaderCap * 2, 'b');
+    std::string big_request = "POST /infer HTTP/1.1\r\nContent-Length: " +
+                              std::to_string(big_body.size()) + "\r\n\r\n" + big_body;
+    Check(!Throws<HttpParseError>(big_request), "body larger than the header cap is accepted");
+    Check(Throws<HttpIncompleteError>(big_request.substr(0, HeaderCap + 100)),
+          "body larger than the header cap, partly arrived : incomplete");
 
     std::cout << (Failures == 0 ? "ALL PASSED" : "FAILED") << std::endl;
     return Failures == 0 ? 0 : 1;

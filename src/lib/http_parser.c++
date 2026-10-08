@@ -9,7 +9,6 @@ static std::string ToLower(std::string text){
     return text;
 }
 
-// Removes spaces and tabs at both ends.
 static std::string Trim(const std::string& text){
     auto first = text.find_first_not_of(" \t");
     if (first == std::string::npos){
@@ -27,7 +26,6 @@ std::optional<std::string> HttpRequest::Header(const std::string& name) const{
     return it->second;
 }
 
-// "POST /infer HTTP/1.1" : exactly three words.
 static void ParseRequestLine(const std::string& line, HttpRequest& request){
     std::istringstream ss(line);
     std::string extra;
@@ -57,7 +55,7 @@ static void ParseHeaderLine(const std::string& line, HttpRequest& request){
 }
 
 // A missing Content-Length means there is no body.
-static std::size_t BodyLength(const HttpRequest& request){
+static std::size_t BodyLength(const HttpRequest& request,size_t cap){
     auto value = request.Header("content-length");
     if (!value){
         return 0;
@@ -69,16 +67,26 @@ static std::size_t BodyLength(const HttpRequest& request){
     if (!digits){
         throw HttpParseError("invalid Content-Length");
     }
-    return std::stoul(*value);
+    auto Cl = std::stoul(*value);
+    if (Cl > cap){
+        throw HttpBodyMax("The body is tooo laaarrge ,  dropping this request");
+    }
+    return Cl;
 }
 
-HttpRequest ParseHttpRequest(const std::string& raw){
+HttpRequest ParseHttpRequest(const std::string& raw , size_t header_cap , size_t body_cap){
     const std::string LineEnd = "\r\n";
 
     // A blank line separates the head (request line + headers) from the body.
     auto head_end = raw.find("\r\n\r\n");
     if (head_end == std::string::npos){
+
+        if (raw.size()> header_cap ){
+            throw HttpHeaderMax("The header is too big , dropping request");
+        }
         throw HttpIncompleteError("the blank line that ends the headers has not arrived");
+    }else if (head_end >header_cap ){
+        throw HttpHeaderMax("The header received is toooo long");
     }
     std::string head = raw.substr(0, head_end);
 
@@ -101,7 +109,7 @@ HttpRequest ParseHttpRequest(const std::string& raw){
         pos = end + LineEnd.size();
     }
 
-    std::size_t length = BodyLength(request);
+    std::size_t length = BodyLength(request,body_cap);
     std::size_t body_start = head_end + 4;
     if (raw.size() - body_start < length){
         throw HttpIncompleteError("the body is shorter than Content-Length");
