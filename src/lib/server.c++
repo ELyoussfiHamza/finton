@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <system_error>
+#include <vector>
 
 static bool SendAll(int fd, const std::string& data){
     std::size_t sent = 0;
@@ -41,9 +42,10 @@ static const char* Reason(int status){
     }
 }
 
-static bool SendResponse(int fd, int status, const std::string& body, bool keep_alive){
+static bool SendResponse(int fd, int status, const std::string& body, bool keep_alive,
+                         const std::string& content_type = "application/json"){
     std::string response = "HTTP/1.1 " + std::to_string(status) + " " + Reason(status) + "\r\n"
-                           "Content-Type: application/json\r\n"
+                           "Content-Type: " + content_type + "\r\n"
                            "Content-Length: " + std::to_string(body.size()) + "\r\n"
                            "Connection: " + (keep_alive ? "keep-alive" : "close") + "\r\n\r\n" + body;
     return SendAll(fd, response);
@@ -138,14 +140,20 @@ Server::Answer Server::Respond(const HttpRequest& http){
         return {200, R"({"status":"ok"})"};
     }
     if (http.method == "POST" && http.path == "/infer"){
-        Request request(NextRequestId++);
+        if (http.body.size() % sizeof(float) != 0){
+            return {400, ""};
+        }
+        std::vector<float> input(http.body.size() / sizeof(float));
+        std::memcpy(input.data(), http.body.data(), http.body.size());
+        Request request(NextRequestId++, std::move(input));
         auto future = request.GetFuture();
         if (!MainScheduler.SubmitRequest(std::move(request))){
             return {503, ""};
         }
         Response result = future.get();
-        return {200, "{\"request_id\":" + std::to_string(result.request_id) +
-                     ",\"result\":" + std::to_string(result.result) + "}"};
+        std::string output(result.result.size() * sizeof(float), '\0');
+        std::memcpy(output.data(), result.result.data(), output.size());
+        return {200, std::move(output), "application/octet-stream"};
     }
     return {404, ""};
 }
@@ -169,7 +177,7 @@ void Server::HandleConnection(int client_fd){
                 answer = Respond(http);
             }
             keep_alive = status == 200 && WantsKeepAlive(http) && !Stopping;
-            if (!SendResponse(client_fd, answer.status, answer.body, keep_alive)){
+            if (!SendResponse(client_fd, answer.status, answer.body, keep_alive, answer.content_type)){
                 break;
             }
         }

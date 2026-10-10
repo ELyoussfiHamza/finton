@@ -20,6 +20,8 @@
 
 finton receives inference requests over HTTP, groups them into batches, and runs each batch on a pool of worker threads.
 
+The name is *fin* + *ton*: in Moroccan Darija, *fin* means "where" and *ton* is tuna, the kind sold in a can. Hence the monkey asking where his tuna went.
+
 It exists to study one question: **how do batch size and waiting time trade latency against throughput?** Both are exposed as plain numbers, so every setting between "answer at once" and "fill the batch" can be tried and measured.
 
 > **Status.** The serving path works end to end: HTTP in, batching, workers, HTTP out. The model itself is still simulated; a real backend with ONNX Runtime is the next step.
@@ -42,8 +44,6 @@ flowchart LR
 3. A free worker asks the scheduler for a batch. The scheduler fills it until it reaches the maximum batch size, or until the oldest request has waited the maximum delay.
 4. The worker runs the whole batch in one call to the backend.
 5. Each request's promise is fulfilled, which wakes its HTTP thread, and the response goes back to the client.
-
-The logo tells the same story: requests arrive one by one, gather in the udder, and leave together as one batch.
 
 The reasons behind each decision are in [design/arch.md](design/arch.md).
 
@@ -68,12 +68,12 @@ The reasons behind each decision are in [design/arch.md](design/arch.md).
 **Not built yet**
 
 - A real model backend (the backend sleeps to simulate a model)
-- Request payloads (the body of `/infer` is received but not used)
+- Use of the request payload (the body of `/infer` reaches the worker as floats, but the simulated backend ignores it)
 - Several models
 
 ## Quick start
 
-You need Linux, CMake 3.22 or newer, and a C++20 compiler (GCC 13 recommended).
+You need Linux, CMake 3.22 or newer, and a C++20 compiler (GCC 13 recommended). The first configure downloads ONNX Runtime (about 8 MB) and a JSON library; nothing has to be installed by hand.
 
 ```bash
 cmake -S . -B build-release -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release -DFINTON_TSAN=OFF
@@ -88,14 +88,16 @@ From another terminal:
 $ curl http://localhost:3001/health
 {"status":"ok"}
 
-$ curl http://localhost:3001/infer -d 'hello'
+$ head -c 16 /dev/zero | curl http://localhost:3001/infer --data-binary @-
 {"request_id":0,"result":0}
 ```
+
+The body of `/infer` is raw 32-bit floats, so its size must be a multiple of 4 bytes. The example sends four floats equal to zero.
 
 `result` is the position of the request inside its batch. Send many requests at once and you will see values above 0, which means they shared a batch:
 
 ```bash
-for i in $(seq 32); do curl -s http://localhost:3001/infer -d x & done; wait
+for i in $(seq 32); do head -c 16 /dev/zero | curl -s http://localhost:3001/infer --data-binary @- & done; wait
 ```
 
 ## HTTP API
@@ -108,7 +110,7 @@ for i in $(seq 32); do curl -s http://localhost:3001/infer -d x & done; wait
 | Status | Meaning |
 |---|---|
 | `200` | Success |
-| `400` | The request is not valid HTTP |
+| `400` | The request is not valid HTTP, or the body of `/infer` is not a whole number of floats |
 | `404` | Unknown method or path |
 | `413` | `Content-Length` is over the body limit |
 | `431` | The headers are over the header limit |

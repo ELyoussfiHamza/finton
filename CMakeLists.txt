@@ -15,6 +15,18 @@ FetchContent_Declare(json
 )
 FetchContent_MakeAvailable(json)
 
+# ONNX Runtime : the engine that loads a .onnx model and runs it. This is the
+# prebuilt release (headers + one shared library), downloaded the same way.
+FetchContent_Declare(onnxruntime
+    URL https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz
+)
+FetchContent_MakeAvailable(onnxruntime)
+add_library(onnxruntime SHARED IMPORTED)
+set_target_properties(onnxruntime PROPERTIES
+    IMPORTED_LOCATION ${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.so
+    INTERFACE_INCLUDE_DIRECTORIES ${onnxruntime_SOURCE_DIR}/include
+)
+
 # Everything except main() lives in this library so tests can link it later.
 # Add each new source file to this list.
 add_library(finton_core
@@ -26,7 +38,7 @@ add_library(finton_core
 )
 
 target_include_directories(finton_core PUBLIC src/header)
-target_link_libraries(finton_core PUBLIC Threads::Threads nlohmann_json::nlohmann_json)
+target_link_libraries(finton_core PUBLIC Threads::Threads nlohmann_json::nlohmann_json onnxruntime)
 target_compile_options(finton_core PUBLIC -Wall -Wextra -g)
 
 # ThreadSanitizer finds data races but makes the program 5-15x slower, so

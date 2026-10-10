@@ -1,10 +1,10 @@
 #pragma once
 #include <future>
 #include <chrono>
-
+#include <vector>
 struct Response{
     int request_id;
-    int result; 
+    std::vector<float> result; 
 };
 
 class Request{
@@ -12,10 +12,11 @@ private:
     int _id;
     std::promise<Response> promise;
     std::chrono::steady_clock::time_point arrival; 
+    std::vector<float> input;
 public:
-
-    Request(int id) : _id(id), arrival(std::chrono::steady_clock::now()) {}
-
+    
+    Request(int id, std::vector<float> _input) : _id(id), arrival(std::chrono::steady_clock::now()) ,input(std::move(_input)) {}
+    
     Request(const Request&) = delete;
     Request& operator=(const Request&) = delete;
 
@@ -29,10 +30,15 @@ public:
         return arrival;
     };
     void SetValue(Response res) {
-        promise.set_value(res);
+        promise.set_value(std::move(res));
     };
 
     std::future<Response> GetFuture()  {
         return promise.get_future();
-    }
+    };
+
+    const std::vector<float>& GetInput(){
+        return input;
+    };
+    
 };

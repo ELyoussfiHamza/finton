@@ -1,33 +1,73 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="finton logo">
   <title>finton</title>
-  <rect width="512" height="512" rx="112" fill="#1B1F3B"/>
+  <rect width="512" height="512" rx="112" fill="#12355B"/>
 
-  <!-- requests arriving one by one -->
-  <g fill="#8FA3FF">
-    <circle cx="150" cy="84" r="11"/>
-    <circle cx="214" cy="60" r="8"/>
-    <circle cx="262" cy="96" r="12"/>
-    <circle cx="322" cy="66" r="9"/>
-    <circle cx="368" cy="98" r="10"/>
+  <!-- thought bubble with the tuna can -->
+  <circle cx="318" cy="170" r="9" fill="#FFFFFF"/>
+  <circle cx="340" cy="146" r="13" fill="#FFFFFF"/>
+  <ellipse cx="392" cy="96" rx="92" ry="62" fill="#FFFFFF"/>
+  <g>
+    <path d="M338 88 V112 A54 17 0 0 0 446 112 V88 Z" fill="#F2B632"/>
+    <path d="M338 96 V106 A54 17 0 0 0 446 106 V96 A54 17 0 0 1 338 96 Z" fill="#E4572E"/>
+    <ellipse cx="392" cy="88" rx="54" ry="17" fill="#D9DEE5"/>
+    <ellipse cx="392" cy="88" rx="44" ry="12" fill="#EEF1F5"/>
+    <!-- fish on the lid -->
+    <path d="M370 88 C378 79 398 79 408 88 C398 97 378 97 370 88 Z" fill="#3D7EAA"/>
+    <path d="M406 88 L420 80 L417 88 L420 96 Z" fill="#3D7EAA"/>
+    <circle cx="379" cy="86.500" r="1.800" fill="#FFFFFF"/>
   </g>
 
-  <!-- teats : the workers -->
-  <g fill="#F07A9B">
-    <rect x="137" y="268" width="42" height="110" rx="21"/>
-    <rect x="204" y="300" width="42" height="96" rx="21"/>
-    <rect x="266" y="300" width="42" height="96" rx="21"/>
-    <rect x="333" y="268" width="42" height="110" rx="21"/>
+  <!-- arms -->
+  <g fill="none" stroke="#7A4A2B" stroke-width="40" stroke-linecap="round">
+    <path d="M170 470 C120 450 92 420 92 372"/>
+    <path d="M342 470 C392 450 420 420 420 372"/>
   </g>
 
-  <!-- udder : the queue where requests gather into a batch -->
-  <path fill="#FFB3C7" d="M92 178 Q92 134 136 134 H376 Q420 134 420 178 C420 284 352 344 256 344 C160 344 92 284 92 178 Z"/>
-  <path fill="#FFD0DC" d="M128 180 Q128 162 146 162 H250 Q232 172 200 176 Q160 182 150 214 Q128 208 128 180 Z"/>
-
-  <!-- one batch out : every drop leaves together -->
-  <g fill="#FFFFFF">
-    <path d="M158 414 C158 414 142 438 142 450 A16 16 0 0 0 174 450 C174 438 158 414 158 414 Z"/>
-    <path d="M225 414 C225 414 209 438 209 450 A16 16 0 0 0 241 450 C241 438 225 414 225 414 Z"/>
-    <path d="M287 414 C287 414 271 438 271 450 A16 16 0 0 0 303 450 C303 438 287 414 287 414 Z"/>
-    <path d="M354 414 C354 414 338 438 338 450 A16 16 0 0 0 370 450 C370 438 354 414 354 414 Z"/>
+  <!-- open palms, turned up -->
+  <g fill="#F3C9A0">
+    <g transform="translate(92 340) rotate(-18)">
+      <ellipse cx="0" cy="6" rx="40" ry="26"/>
+      <rect x="-38" y="-34" width="17" height="42" rx="8.500"/>
+      <rect x="-18" y="-42" width="17" height="50" rx="8.500"/>
+      <rect x="2" y="-42" width="17" height="50" rx="8.500"/>
+      <rect x="22" y="-34" width="17" height="42" rx="8.500"/>
+    </g>
+    <g transform="translate(420 340) rotate(18)">
+      <ellipse cx="0" cy="6" rx="40" ry="26"/>
+      <rect x="-39" y="-34" width="17" height="42" rx="8.500"/>
+      <rect x="-19" y="-42" width="17" height="50" rx="8.500"/>
+      <rect x="1" y="-42" width="17" height="50" rx="8.500"/>
+      <rect x="21" y="-34" width="17" height="42" rx="8.500"/>
+    </g>
   </g>
+
+  <!-- body -->
+  <path d="M150 512 C150 440 196 404 256 404 C316 404 362 440 362 512 Z" fill="#7A4A2B"/>
+
+  <!-- ears -->
+  <circle cx="146" cy="282" r="40" fill="#7A4A2B"/>
+  <circle cx="146" cy="282" r="22" fill="#F3C9A0"/>
+  <circle cx="366" cy="282" r="40" fill="#7A4A2B"/>
+  <circle cx="366" cy="282" r="22" fill="#F3C9A0"/>
+
+  <!-- head and face -->
+  <circle cx="256" cy="286" r="112" fill="#8B5A3C"/>
+  <path d="M256 236 C232 208 180 222 180 268 C180 300 196 312 190 336 C186 372 220 392 256 392 C292 392 326 372 322 336 C316 312 332 300 332 268 C332 222 280 208 256 236 Z" fill="#F3C9A0"/>
+
+  <!-- eyes looking up at the can -->
+  <ellipse cx="220" cy="278" rx="19" ry="23" fill="#FFFFFF"/>
+  <ellipse cx="292" cy="278" rx="19" ry="23" fill="#FFFFFF"/>
+  <circle cx="227" cy="268" r="10" fill="#1E1E24"/>
+  <circle cx="299" cy="268" r="10" fill="#1E1E24"/>
+
+  <!-- raised eyebrows -->
+  <g fill="none" stroke="#5A3520" stroke-width="8" stroke-linecap="round">
+    <path d="M196 240 Q216 222 240 236"/>
+    <path d="M272 236 Q296 222 316 240"/>
+  </g>
+
+  <!-- nose and puzzled mouth -->
+  <ellipse cx="246" cy="322" rx="4" ry="5" fill="#5A3520"/>
+  <ellipse cx="266" cy="322" rx="4" ry="5" fill="#5A3520"/>
+  <path d="M232 358 Q256 344 282 360" fill="none" stroke="#5A3520" stroke-width="8" stroke-linecap="round"/>
 </svg>

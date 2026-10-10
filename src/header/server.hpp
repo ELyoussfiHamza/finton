@@ -38,6 +38,7 @@ private:
     struct Answer{
         int status;
         std::string body;
+        std::string content_type = "application/json";
     };
 
     void ConnectionLoop();

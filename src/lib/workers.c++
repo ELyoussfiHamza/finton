@@ -1,6 +1,5 @@
 #include "workers.hpp"
 #include "scheduler.hpp"
-#include <iostream>
 #include <thread>
 #include <chrono>
 
@@ -32,11 +31,14 @@ void Workers::Task(Scheduler& scheduler){
         // Fake backend : one call for the whole batch, a fixed overhead plus a
         // cost per request. This ratio is what makes batching pay off.
         std::this_thread::sleep_for(std::chrono::milliseconds(10 + ReqVec.size()));
-        int i = 0;
         for (auto& Req : ReqVec){
             auto Id = Req.GetId();
-            auto ResToVec = Response(Id , i);
-            i++;
+            auto& input = Req.GetInput();
+            std::vector<float> v;
+            for (auto& e : input){
+                v.push_back(e*56);
+            }
+            auto ResToVec = Response(Id , v);
             Req.SetValue(ResToVec);
         }  
 
