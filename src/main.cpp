@@ -6,6 +6,7 @@
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
+#include <exception>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -31,15 +32,12 @@ int main(int argc, char** argv){
     std::unique_ptr<OnnxBackend> backend;
     try{
         backend = std::make_unique<OnnxBackend>(ModelPath);
-    }catch (const Ort::Exception& e){
-        std::cerr << "Could not load the model : " << e.what() << std::endl;
+    }catch (const std::exception& e){
+        std::cerr << "Could not load the model " << ModelPath << " : " << e.what() << std::endl;
         return 1;
     }
-    config.InputSize = 1;
-    auto InputShape = backend->GetShape();
-    for (std::size_t i = 1 ; i < InputShape.size() ; i++){
-        config.InputSize *= static_cast<std::size_t>(InputShape[i]);
-    }
+    std::cout << "Model " << ModelPath << " | " << backend->Describe() << std::endl;
+    config.InputSize = backend->InputSize();
 
     auto MaxDelay = std::chrono::milliseconds(5);
     int MaxBatchSize = 8;
