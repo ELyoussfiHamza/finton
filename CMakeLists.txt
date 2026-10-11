@@ -35,6 +35,7 @@ add_library(finton_core
     src/lib/workers.c++
     src/lib/server.c++
     src/lib/http_parser.c++
+    src/lib/onnxbackend.c++
 )
 
 target_include_directories(finton_core PUBLIC src/header)
@@ -52,6 +53,13 @@ endif()
 
 add_executable(finton src/main.cpp)
 target_link_libraries(finton PRIVATE finton_core)
+
+# Standalone ONNX Runtime experiment, built only once the file exists :
+#   ./build/onnx_hello models/mnist/model.onnx
+if(EXISTS ${CMAKE_SOURCE_DIR}/src/experiments/onnx_hello.cpp)
+    add_executable(onnx_hello src/experiments/onnx_hello.cpp)
+    target_link_libraries(onnx_hello PRIVATE onnxruntime)
+endif()
 
 # Tests : build, then run with  ctest --test-dir build --output-on-failure
 enable_testing()

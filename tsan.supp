@@ -1,0 +1,7 @@
+# ONNX Runtime is a prebuilt library that ThreadSanitizer cannot see inside,
+# so its internal locking looks like data races. Reports that come from it are ignored.
+# Use with : TSAN_OPTIONS=suppressions=tsan.supp ./build/finton
+called_from_lib:libonnxruntime.so
+race:libonnxruntime.so
+mutex:libonnxruntime.so
+deadlock:libonnxruntime.so

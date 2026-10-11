@@ -1,7 +1,10 @@
 #include "workers.hpp"
 #include "scheduler.hpp"
+#include <exception>
+#include <iostream>
 #include <thread>
-#include <chrono>
+#include <utility>
+
 
 Workers::Workers(int max):MaxPoolWorkers(max){};
 
@@ -20,7 +23,7 @@ void Workers::InitiateWorkers(std::function<void(Scheduler&)> task , Scheduler& 
     }
 }
 
-void Workers::Task(Scheduler& scheduler){
+void Workers::Task(Scheduler& scheduler , Backend& backend){
 
     while (1){
         auto Batch = scheduler.PullRequests();
@@ -28,19 +31,21 @@ void Workers::Task(Scheduler& scheduler){
             break;
         }
         auto& ReqVec = Batch.value();
-        // Fake backend : one call for the whole batch, a fixed overhead plus a
-        // cost per request. This ratio is what makes batching pay off.
-        std::this_thread::sleep_for(std::chrono::milliseconds(10 + ReqVec.size()));
-        for (auto& Req : ReqVec){
-            auto Id = Req.GetId();
-            auto& input = Req.GetInput();
-            std::vector<float> v;
-            for (auto& e : input){
-                v.push_back(e*56);
-            }
-            auto ResToVec = Response(Id , v);
-            Req.SetValue(ResToVec);
-        }  
+        
+        std::vector<std::vector<float>> Outputs;
+        try{
+            Outputs = backend.Run(ReqVec);
+        }catch (const std::exception& e){
+            std::cerr << "backend : " << e.what() << std::endl;
+            continue;
+        }
+        if (Outputs.size() != ReqVec.size()){
+            std::cerr << "backend : wrong number of outputs" << std::endl;
+            continue;
+        }
+        for (std::size_t i = 0 ; i < ReqVec.size() ; i++){
+            ReqVec[i].SetValue(Response{ReqVec[i].GetId() , std::move(Outputs[i])});
+        }
 
     }
 }

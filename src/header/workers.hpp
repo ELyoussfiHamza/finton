@@ -3,6 +3,7 @@
 #include <thread> 
 #include <functional>
 #include "scheduler.hpp"
+#include "backend.hpp"
 
 class Workers {
 private:
@@ -15,7 +16,7 @@ public:
     ~Workers();
     void InitiateWorkers(std::function<void(Scheduler& )> task , Scheduler& scheduler );
 
-    void Task(Scheduler& sch  );
+    void Task(Scheduler& sch , Backend& backend);
 
 
     

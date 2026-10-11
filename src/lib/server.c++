@@ -141,7 +141,10 @@ Server::Answer Server::Respond(const HttpRequest& http){
     }
     if (http.method == "POST" && http.path == "/infer"){
         if (http.body.size() % sizeof(float) != 0){
-            return {400, ""};
+            return {400, R"({"error":"the body must be raw 32-bit floats"})"};
+        }
+        if (Config.InputSize != 0 && http.body.size() != Config.InputSize * sizeof(float)){
+            return {400, "{\"error\":\"the model expects exactly " + std::to_string(Config.InputSize) + " floats\"}"};
         }
         std::vector<float> input(http.body.size() / sizeof(float));
         std::memcpy(input.data(), http.body.data(), http.body.size());

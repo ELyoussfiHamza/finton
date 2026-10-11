@@ -37,7 +37,7 @@ public:
         return promise.get_future();
     };
 
-    const std::vector<float>& GetInput(){
+    const std::vector<float>& GetInput() const{
         return input;
     };
     

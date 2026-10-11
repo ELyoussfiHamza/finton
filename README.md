@@ -24,7 +24,7 @@ The name is *fin* + *ton*: in Moroccan Darija, *fin* means "where" and *ton* is 
 
 It exists to study one question: **how do batch size and waiting time trade latency against throughput?** Both are exposed as plain numbers, so every setting between "answer at once" and "fill the batch" can be tried and measured.
 
-> **Status.** The serving path works end to end: HTTP in, batching, workers, HTTP out. The model itself is still simulated; a real backend with ONNX Runtime is the next step.
+> **Status.** finton serves a real model end to end: HTTP in, batching, one ONNX Runtime call per batch, HTTP out. It ships with an MNIST digit classifier as the example model. Measurements and multi-model support are next.
 
 ## How it works
 
@@ -34,7 +34,7 @@ flowchart LR
     H -->|submit| Q[Bounded queue]
     Q --> S[Scheduler<br>max batch size + max delay]
     S -->|pull a batch| W[Worker pool]
-    W --> B[Backend]
+    W -->|one call per batch| B[ONNX Runtime]
     W -.->|promise / future| H
     H -->|response| C
 ```
@@ -67,9 +67,9 @@ The reasons behind each decision are in [design/arch.md](design/arch.md).
 
 **Not built yet**
 
-- A real model backend (the backend sleeps to simulate a model)
-- Use of the request payload (the body of `/infer` reaches the worker as floats, but the simulated backend ignores it)
-- Several models
+- Measurements on a real model
+- A model repository and several models at once
+- Models with more than one input or output
 
 ## Quick start
 
@@ -80,6 +80,7 @@ cmake -S . -B build-release -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Relea
 cmake --build build-release
 ./build-release/finton          # listens on port 3001
 ./build-release/finton 8080     # or on the port you give
+./build-release/finton 8080 path/to/model.onnx   # and with your own model
 ```
 
 From another terminal:
@@ -88,16 +89,18 @@ From another terminal:
 $ curl http://localhost:3001/health
 {"status":"ok"}
 
-$ head -c 16 /dev/zero | curl http://localhost:3001/infer --data-binary @-
-{"request_id":0,"result":0}
+$ head -c 3136 /dev/zero | curl -s http://localhost:3001/infer --data-binary @- | od -A n -t f4
+    -0.044856027     0.007791661      0.06810082      0.02999374
+     -0.12640963      0.14021875    -0.055284902    -0.049383815
+      0.08432205    -0.054540414
 ```
 
-The body of `/infer` is raw 32-bit floats, so its size must be a multiple of 4 bytes. The example sends four floats equal to zero.
+The example model recognises handwritten digits. The request body is one 28 × 28 grayscale image as 784 raw 32-bit floats (3,136 bytes, here an all-black image). The response is 10 raw floats, one score per digit from 0 to 9; the highest score is the model's answer.
 
-`result` is the position of the request inside its batch. Send many requests at once and you will see values above 0, which means they shared a batch:
+Requests that arrive together are run as one batch, with a single call to the model:
 
 ```bash
-for i in $(seq 32); do head -c 16 /dev/zero | curl -s http://localhost:3001/infer --data-binary @- & done; wait
+for i in $(seq 32); do head -c 3136 /dev/zero | curl -s -o /dev/null http://localhost:3001/infer --data-binary @- & done; wait
 ```
 
 ## HTTP API
@@ -105,12 +108,12 @@ for i in $(seq 32); do head -c 16 /dev/zero | curl -s http://localhost:3001/infe
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Returns `200` when the server is up |
-| `POST` | `/infer` | Submits one request to the scheduler and returns its result |
+| `POST` | `/infer` | Runs one input through the model. Body: the input as raw little-endian 32-bit floats. Response: the output in the same format (`application/octet-stream`) |
 
 | Status | Meaning |
 |---|---|
 | `200` | Success |
-| `400` | The request is not valid HTTP, or the body of `/infer` is not a whole number of floats |
+| `400` | The request is not valid HTTP, or the body of `/infer` is not the number of floats the model expects |
 | `404` | Unknown method or path |
 | `413` | `Content-Length` is over the body limit |
 | `431` | The headers are over the header limit |
@@ -150,6 +153,8 @@ Timings from the sanitized build mean nothing: the sanitizer makes the program 5
 
 **ThreadSanitizer and GCC 11.** With GCC 11 the sanitized build can stop at startup with `unexpected memory mapping`, and it reports data races on the queue that are not real. Its runtime does not follow the mutex through a timed wait on a condition variable. GCC 13 has neither problem.
 
+**ThreadSanitizer and ONNX Runtime.** ONNX Runtime is a prebuilt library that the sanitizer cannot see inside, so its internal locking shows up as false reports. Run the sanitized build with `TSAN_OPTIONS=suppressions=tsan.supp ./build/finton` to hide the data-race ones. A few `unlock of an unlocked mutex` reports from ONNX Runtime's own threads remain; they point at a mutex allocated while the model is loaded, not at finton's code.
+
 ## Tests
 
 ```bash
@@ -169,10 +174,13 @@ src/
     queue.hpp          thread-safe bounded queue
     scheduler.hpp      batching policy
     workers.hpp        worker thread pool
+    backend.hpp        what a backend is : a batch in, one output per request out
+    onnxbackend.hpp    the backend that runs a model with ONNX Runtime
     http_parser.hpp    HTTP/1.1 request parser
     server.hpp         HTTP server and its settings
   lib/               implementations
 tests/               parser tests
+models/              example model (MNIST digit classifier)
 design/              design document, diagrams and logo
 ```
 
@@ -180,9 +188,9 @@ design/              design document, diagrams and logo
 
 - [x] Queue, scheduler and worker pool
 - [x] HTTP front end
-- [ ] Request payloads as raw bytes (`application/octet-stream`)
-- [ ] Real backend with ONNX Runtime
-- [ ] Real batching: one tensor and one model call per batch
+- [x] Request payloads as raw bytes (`application/octet-stream`)
+- [x] Real backend with ONNX Runtime
+- [x] Real batching: one tensor and one model call per batch
 - [ ] Measurements on a real model
 - [ ] Several models, each with its own scheduler
 

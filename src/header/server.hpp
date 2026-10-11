@@ -18,6 +18,7 @@ struct ServerConfig{
     int HttpThreads = 64;
     int MaxPendingConnections = 64;
     int IdleTimeoutSeconds = 5;
+    std::size_t InputSize = 0;
 };
 
 class Server{
