@@ -67,7 +67,6 @@ The reasons behind each decision are in [design/arch.md](design/arch.md).
 
 **Not built yet**
 
-- Measurements on a real model
 - A model repository and several models at once
 - Models with more than one input or output
 
@@ -78,9 +77,9 @@ You need Linux, CMake 3.22 or newer, and a C++20 compiler (GCC 13 recommended). 
 ```bash
 cmake -S . -B build-release -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release -DFINTON_TSAN=OFF
 cmake --build build-release
-./build-release/finton          # listens on port 3001
-./build-release/finton 8080     # or on the port you give
-./build-release/finton 8080 path/to/model.onnx   # and with your own model
+./build-release/finton                                   # MNIST example model, port 3001
+./build-release/finton --port 8080 --model my_model.onnx # your own model
+./build-release/finton --help                            # every option
 ```
 
 From another terminal:
@@ -122,23 +121,57 @@ for i in $(seq 32); do head -c 3136 /dev/zero | curl -s -o /dev/null http://loca
 
 ## Configuration
 
-The port is a command-line argument. The other settings are set in [`src/main.cpp`](src/main.cpp) and [`src/header/server.hpp`](src/header/server.hpp).
+Settings are command-line options:
 
-| Setting | Default | Meaning |
+| Option | Default | Meaning |
 |---|---|---|
-| `MaxBatchSize` | 8 | Most requests in one batch |
-| `MaxDelay` | 5 ms | Longest time a request is held back to fill a batch |
-| `MaxQueueSize` | 64 | Requests that can wait in the scheduler. Beyond this: `503` |
-| `WorkerCount` | 2 | Worker threads running batches |
-| `HttpThreads` | 64 | HTTP threads, which is also the most requests in flight |
-| `MaxPendingConnections` | 64 | Accepted connections waiting for a free HTTP thread |
-| `HeaderCap` | 8 KB | Largest request head |
-| `BodyCap` | 10 MB | Largest request body |
-| `IdleTimeoutSeconds` | 5 | A silent client is dropped after this |
+| `--port` | 3001 | Port to listen on |
+| `--model` | `models/mnist/model.onnx` | The `.onnx` model to serve |
+| `--batch` | 8 | Most requests in one batch |
+| `--delay-ms` | 5 | Longest time a request is held back to fill a batch |
+| `--workers` | 2 | Threads that run batches |
+| `--threads` | 0 | Threads ONNX Runtime uses inside one inference. 0 keeps its default, one per core |
+| `--queue` | 64 | Requests that can wait in the scheduler. Beyond this: `503` |
+| `--http-threads` | 64 | HTTP threads, which is also the most requests in flight |
 
-`MaxBatchSize` 1 with `MaxDelay` 0 favours latency. A large batch with a long delay favours throughput.
+The size limits (8 KB for headers, 10 MB for a body), the 5 second timeout for silent clients and the waiting line for connections are set in [`src/header/server.hpp`](src/header/server.hpp).
 
-Keep `HttpThreads` above `MaxBatchSize × WorkerCount`. Each HTTP thread sleeps while its request is in the scheduler, so with fewer threads the batches can never fill.
+finton reads the input name, shape and size from the model itself and prints what it found at startup. It supports models with one float input and one float output, where only the batch dimension is flexible.
+
+`--batch 1` with `--delay-ms 0` favours latency. A large batch with a long delay favours throughput.
+
+Keep `--http-threads` above `--batch` × `--workers`. Each HTTP thread sleeps while its request is in the scheduler, so with fewer threads the batches can never fill.
+
+## Measuring
+
+`loadgen` sends requests from many connections at once and reports throughput and latency percentiles. Each client sends a request, waits for the response, then sends the next one.
+
+```console
+$ ./build-release/loadgen --clients 16 --seconds 3
+clients 16 | 3.00 s measured
+completed  : 23637  (rejected with 503 : 0, failed : 0)
+throughput : 7879.00 requests/s
+latency ms : mean 2.03 | p50 1.92 | p95 2.93 | p99 3.74 | max 7.88
+```
+
+`tools/sweep.sh` restarts finton once per value of one setting and prints a table. It can sweep `batch`, `delay-ms`, `workers`, `threads` or `clients`:
+
+```bash
+tools/sweep.sh batch "1 2 4 8 16 32"
+CLIENTS=64 WORKERS=4 tools/sweep.sh delay-ms "0 1 5 20"
+```
+
+There are two example models. MNIST is included and is tiny (784 floats in, well under a millisecond per call), so the cost of HTTP and threads dominates. MobileNetV2 is downloaded separately (14 MB) and is a 224 × 224 colour image classifier (150,528 floats in, tens of milliseconds per call), so the model dominates:
+
+```bash
+mkdir -p models/mobilenet
+curl -L -o models/mobilenet/model.onnx https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-12.onnx
+MODEL=models/mobilenet/model.onnx CLIENTS=16 tools/sweep.sh batch "1 2 4 8"
+```
+
+When finton stops it prints how many batches it ran and their average size, which shows whether the batches really filled.
+
+Always measure with the release build. Keep `--workers` × `--threads` at or below the number of cores, and remember that the load generator uses cores too when it runs on the same machine.
 
 ## Build configurations
 
@@ -180,6 +213,7 @@ src/
     server.hpp         HTTP server and its settings
   lib/               implementations
 tests/               parser tests
+tools/               load generator and sweep script
 models/              example model (MNIST digit classifier)
 design/              design document, diagrams and logo
 ```

@@ -1,5 +1,6 @@
 #pragma once
 #include "backend.hpp"
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <onnxruntime_cxx_api.h>
@@ -17,13 +18,18 @@ class OnnxBackend : public Backend{
         std::string OutputName;
         std::size_t InputElements = 1;
         bool Batchable = false;
+        int Threads = 0;
+        std::atomic<std::uint64_t> BatchCount{0};
+        std::atomic<std::uint64_t> RequestCount{0};
 
         void RunTensor(const float* Data, std::size_t Count, std::vector<std::vector<float>>& Outputs);
     public:
-        OnnxBackend(const std::string& path);
+        OnnxBackend(const std::string& path, int Threads = 0);
         std::vector<std::vector<float>> Run(const std::vector<Request>& Batch) override;
         std::size_t InputSize() const override;
         std::vector<std::int64_t> GetShape()const;
         bool CanBatch() const;
         std::string Describe() const;
+        std::uint64_t Batches() const;
+        std::uint64_t Requests() const;
 };

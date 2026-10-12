@@ -1,5 +1,19 @@
-.vscode
+# build output and downloaded dependencies
 /build
-
 /build-release
 /.deps
+
+# editor and tooling
+.vscode
+.cache
+.idea
+*.swp
+*~
+compile_commands.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# large model, downloaded separately (see README)
+/models/mobilenet/

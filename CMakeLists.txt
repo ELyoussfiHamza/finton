@@ -54,6 +54,12 @@ endif()
 add_executable(finton src/main.cpp)
 target_link_libraries(finton PRIVATE finton_core)
 
+# Load generator for the measurements :
+#   ./build-release/loadgen --clients 16 --seconds 5
+add_executable(loadgen tools/loadgen.cpp)
+target_link_libraries(loadgen PRIVATE Threads::Threads)
+target_compile_options(loadgen PRIVATE -Wall -Wextra)
+
 # Standalone ONNX Runtime experiment, built only once the file exists :
 #   ./build/onnx_hello models/mnist/model.onnx
 if(EXISTS ${CMAKE_SOURCE_DIR}/src/experiments/onnx_hello.cpp)

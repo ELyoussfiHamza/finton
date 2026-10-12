@@ -7,9 +7,17 @@
 #include <vector>
 
 
-OnnxBackend::OnnxBackend(const std::string& path)
-    :Obj(ORT_LOGGING_LEVEL_WARNING,"finton"),OptObj(),LoadedModel(Obj,path.c_str(),OptObj),
-     MemInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)){
+static Ort::SessionOptions MakeOptions(int Threads){
+    Ort::SessionOptions Options;
+    if (Threads > 0){
+        Options.SetIntraOpNumThreads(Threads);
+    }
+    return Options;
+}
+
+OnnxBackend::OnnxBackend(const std::string& path, int Threads)
+    :Obj(ORT_LOGGING_LEVEL_WARNING,"finton"),OptObj(MakeOptions(Threads)),LoadedModel(Obj,path.c_str(),OptObj),
+     MemInfo(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)),Threads(Threads){
     if (LoadedModel.GetInputCount() != 1 || LoadedModel.GetOutputCount() != 1){
         throw std::runtime_error("finton supports models with exactly one input and one output, this one has " +
                                  std::to_string(LoadedModel.GetInputCount()) + " input(s) and " +
@@ -68,8 +76,17 @@ std::string OnnxBackend::Describe() const{
         text += (i == 0 ? "" : ", ") + (Shape[i] == -1 ? std::string("N") : std::to_string(Shape[i]));
     }
     text += "], " + std::to_string(InputElements) + " floats per request | output " + OutputName +
-            " | batching " + (Batchable ? "yes" : "no, one call per request");
+            " | batching " + (Batchable ? "yes" : "no, one call per request") +
+            " | threads per inference " + (Threads > 0 ? std::to_string(Threads) : std::string("default"));
     return text;
+}
+
+std::uint64_t OnnxBackend::Batches() const{
+    return BatchCount;
+}
+
+std::uint64_t OnnxBackend::Requests() const{
+    return RequestCount;
 }
 
 void OnnxBackend::RunTensor(const float* Data, std::size_t Count, std::vector<std::vector<float>>& Outputs){
@@ -105,6 +122,8 @@ std::vector<std::vector<float>> OnnxBackend::Run(const std::vector<Request>& Bat
         return Scores;
     }
     Scores.reserve(Batch.size());
+    BatchCount++;
+    RequestCount += Batch.size();
     for (auto& req : Batch){
         if (req.GetInput().size() != InputElements){
             throw std::runtime_error("a request does not have the input size of the model");
