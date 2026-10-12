@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>A dynamic-batching inference server for ordinary CPUs, written in C++20.</b><br>
-  Inspired by NVIDIA Triton Inference Server. No GPU, no framework, one binary.
+  Inspired by NVIDIA Triton Inference Server. No GPU required.
 </p>
 
 <p align="center">
@@ -122,6 +122,17 @@ The reasons behind each decision are in [design/arch.md](design/arch.md).
 
 ## Quick start
 
+### With Docker
+
+```bash
+git clone https://github.com/ELyoussfiHamza/finton.git
+cd finton
+docker build -t finton .
+docker run --rm -p 3001:3001 finton
+```
+
+### From source
+
 You need Linux, CMake 3.22 or newer, and a C++20 compiler (GCC 13 recommended). The first configure downloads ONNX Runtime (about 8 MB) and a JSON library; nothing has to be installed by hand.
 
 ```bash
@@ -132,7 +143,9 @@ cmake --build build-release
 ./build-release/finton
 ```
 
-It starts on port 3001 with the example model, an MNIST digit classifier, and prints what it understood:
+### Try it
+
+Either way, finton starts on port 3001 with the example model, an MNIST digit classifier, and prints what it understood:
 
 ```
 Model models/mnist/model.onnx | input Input3 : float32 [N, 1, 28, 28], 784 floats per request | output Plus214_Output_0 | batching yes | threads per inference default
@@ -140,7 +153,20 @@ Settings | batch 8 | delay 5 ms | workers 2 | queue 64 | http threads 64
 finton is listening on port 3001
 ```
 
-From another terminal:
+From another terminal, the demo script draws three digits, sends them, and prints the model's answers. It needs only Python 3:
+
+```console
+$ python3 tools/demo.py
+              ######
+              ######
+              ######
+              ...
+    drew a 1, the model says 1   (scores : -5.6 13.5 -5.0 -3.4 2.6 -4.5 -4.7 0.8 -2.4 -4.0)
+
+3 of 3 recognised
+```
+
+Or by hand with `curl`:
 
 ```console
 $ curl http://localhost:3001/health
@@ -158,6 +184,9 @@ The request body is one 28 × 28 grayscale image as 784 raw 32-bit floats (3,136
 
 ```bash
 ./build-release/finton --model path/to/model.onnx --port 8080
+
+# or with Docker
+docker run --rm -p 3001:3001 -v "$PWD/model.onnx:/model.onnx:ro" finton --model /model.onnx
 ```
 
 finton supports models with one float input and one float output, where only the first dimension (the batch) is flexible. That covers most image classifiers. The startup line tells you how many floats a request must contain.
@@ -274,11 +303,13 @@ src/
     http_parser.hpp    HTTP/1.1 request parser
     server.hpp         HTTP server and its settings
   lib/               implementations
+  experiments/       a standalone ONNX Runtime example, outside the server
 tests/               parser tests
-tools/               load generator and sweep script
+tools/               demo script, load generator and sweep script
 benchmarks/          benchmark script, raw results, charts
 models/              example model (MNIST digit classifier)
 design/              design document, diagrams and logo
+Dockerfile           builds a small image with finton, ONNX Runtime and the example model
 ```
 
 ## Limits
@@ -298,7 +329,8 @@ design/              design document, diagrams and logo
 - [ ] Models with several inputs and outputs, and a request format that describes them
 - [ ] Several models at once, each with its own scheduler
 - [ ] A model metadata endpoint
-- [ ] A Docker image and prebuilt releases
+- [x] A Docker image
+- [ ] Prebuilt releases
 - [ ] An event loop (`epoll`) in place of one thread per connection
 
 ## About

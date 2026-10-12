@@ -1,0 +1,10 @@
+.git
+.deps
+.cache
+.vscode
+build
+build-release
+launch
+benchmarks
+design
+models/mobilenet

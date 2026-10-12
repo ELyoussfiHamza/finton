@@ -30,7 +30,7 @@ A request goes through these steps:
 
    Only one worker builds a batch at a time, so two workers never end up with half a batch each.
 
-5. **Execution.** The worker runs the whole batch in one call to the backend. Today the backend is a simulation that sleeps for a fixed cost plus a cost per request. Later it will be a real model.
+5. **Execution.** The worker hands the whole batch to the backend. The backend joins the inputs into one tensor, calls the model once through ONNX Runtime, and splits the output per request (see 3.12).
 
 6. **Response.** The worker fulfils the promise of each request in the batch. This wakes the HTTP thread waiting on the future, which sends the response to the client.
 
@@ -135,37 +135,48 @@ What follows from this choice:
 
 The first version of the HTTP server was written by hand: the socket setup, the accept loop, reading a request that arrives in pieces, and the size limits. The thread pool, keep-alive and the graceful stop were then written with Claude's assistance, with the decisions above taken together. The queue, the scheduler and the workers are written by hand.
 
-## 4. What the simulated runs showed
+### 3.12 The backend is an interface, and the model describes itself
 
-The backend is still a simulation, so these are not performance results. Real measurements will come with a real model. Two effects came from the scheduler itself and should stay true with any backend.
+The worker does not know what runs the batch. It holds a `Backend`, an interface with one job: a batch of requests in, one output per request out, in the same order. `OnnxBackend` implements it with ONNX Runtime.
 
-**A batch size larger than the load can fill leaves workers idle.** With 16 clients and 2 workers, a maximum batch of 8 gave more throughput than a maximum batch of 16. At 16, one worker took all the waiting requests in a single batch and the other had nothing to do. At 8, both workers ran in parallel.
+The alternative was to call ONNX Runtime from the worker. Keeping it behind an interface means the worker and the scheduler compile without it, a fake backend can stand in for tests, and a backend that sends the batch to another machine can be added later without touching the worker.
 
-**Under light load, the delay is paid in full by every request.** With 2 clients and a maximum batch of 8, a batch can never fill, so the scheduler always waits until the deadline. Latency grew by about the value of `MaxDelay`, and throughput fell. When few requests arrive, the best delay is 0.
+The backend is created once, before the workers, and shared by all of them. Loading a model is expensive, and one loaded model can run several batches at the same time. For this to be safe, everything `Run` needs for one call lives in local variables.
 
-Together these say that the right settings depend on the load, which is the reason both values are exposed as numbers.
+Nothing about the model is configured by hand. When it loads, the backend asks the model for its input name, its shape and its element type. From the shape it computes how many floats one request must contain, and the HTTP server rejects any other size with a `400` before the request reaches the queue. A model that finton cannot serve (several inputs, a type other than 32-bit floats, a flexible dimension other than the batch) is refused at startup with a message, not at the first request.
+
+## 4. What the measurements showed
+
+The numbers, the charts and the way to reproduce them are in the [README](../README.md) and in [benchmarks/RESULTS.md](../benchmarks/RESULTS.md). Three effects stand out. The first two had already shown up with a simulated backend, before any model was plugged in, and held with a real one.
+
+**A delay only pays when the load can fill the batch.** With 4 clients and a maximum batch of 8, a batch can never fill, so every request waits until the deadline. The server was 4.4 times slower than with no batching at all. With 64 clients the batches fill at once and batching was 24% faster. When few requests arrive, the best delay is 0.
+
+**A batch size larger than the load can fill leaves workers idle.** With 32 clients and 2 workers, a maximum batch of 8 gave far more throughput than a maximum batch of 32. With a large batch, one worker takes most of the waiting requests and the other has little to do.
+
+**On a heavier model, the number of cores mattered more than batching.** On MobileNetV2 the throughput followed the cores given to the model, whether as workers or as threads inside one inference, and batching showed no clear gain.
+
+Together these say that the right settings depend on the load and on the model, which is the reason every one of them is exposed as a number.
 
 ## 5. Limits and next steps
 
-What exists today is the core (queue, scheduler, worker pool, response path and shutdown) and the HTTP server in front of it. It is checked with ThreadSanitizer.
+What exists today is the full serving path: the HTTP server, the scheduling core (queue, scheduler, worker pool, response path and shutdown) and a backend that runs a real model. It is checked with ThreadSanitizer.
 
 Known limits:
 
-- The backend is simulated. No model is loaded or run.
-- A request has an id but no input data yet. The HTTP server receives the body of `POST /infer` and does not pass it on.
+- A model must have one input and one output, both 32-bit floats. Text models are refused.
 - There is one scheduler and one queue, so one model.
 - The queue is first in, first out only. There are no priorities.
 - The scheduler takes requests from the queue one at a time, with one lock each. Taking several under one lock would reduce contention.
 - An HTTP thread is held by its connection even when the client is idle between two requests. An event loop would remove this limit.
 - A large body is parsed again each time a new piece of it arrives.
+- The input of each request is copied twice on its way to the model: from the HTTP body into the request, then into the tensor of the batch.
 
-Next steps, in order:
+Next steps:
 
-1. Real input and output data in requests, sent as raw bytes (`application/octet-stream`).
-2. A real backend with ONNX Runtime, with a small file that describes the model.
-3. Real batching: the inputs of a batch joined into one tensor, one call to the model.
-4. Measurements on a real model: batch size, delay, number of workers and threads per worker.
-5. Several models, each with its own scheduler.
+1. Models with several inputs and outputs, with a request format that describes them.
+2. Several models, each with its own scheduler.
+3. A model metadata endpoint.
+4. An event loop in place of one thread per connection, measured against the current design.
 
 
 ## Appendix: the first sketch
