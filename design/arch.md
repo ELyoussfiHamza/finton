@@ -133,7 +133,7 @@ What follows from this choice:
 - **Connections are kept alive.** A client can send several requests on one connection, so a measurement does not pay for a new TCP connection on every request.
 - **Sizes are limited before the data is read.** The head (request line and headers) has a small limit. The body has a much larger one, checked against the declared `Content-Length`, so an oversized body is refused before it is received.
 
-The HTTP layer was written by Claude, with the decisions above taken together. The queue, the scheduler and the workers are written by hand.
+The first version of the HTTP server was written by hand: the socket setup, the accept loop, reading a request that arrives in pieces, and the size limits. The thread pool, keep-alive and the graceful stop were then written with Claude's assistance, with the decisions above taken together. The queue, the scheduler and the workers are written by hand.
 
 ## 4. What the simulated runs showed
 

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="On a heavier model, cores matter more than batching">
+<rect width="1200" height="675" fill="#fcfcfb"/>
+<text x="96" y="62" font-size="34" font-weight="700" fill="#0b0b0b">On a heavier model, cores matter more than batching</text>
+<text x="96" y="100" font-size="21" fill="#52514e">MobileNetV2 on finton, 16 clients. Two ways of giving the model more cores</text>
+<line x1="96" y1="547.0" x2="970" y2="547.0" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="553.0" font-size="18" text-anchor="end" fill="#52514e">0</text>
+<line x1="96" y1="467.6" x2="970" y2="467.6" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="473.6" font-size="18" text-anchor="end" fill="#52514e">20</text>
+<line x1="96" y1="388.2" x2="970" y2="388.2" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="394.2" font-size="18" text-anchor="end" fill="#52514e">40</text>
+<line x1="96" y1="308.8" x2="970" y2="308.8" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="314.8" font-size="18" text-anchor="end" fill="#52514e">60</text>
+<line x1="96" y1="229.4" x2="970" y2="229.4" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="235.4" font-size="18" text-anchor="end" fill="#52514e">80</text>
+<line x1="96" y1="150.0" x2="970" y2="150.0" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="156.0" font-size="18" text-anchor="end" fill="#52514e">100</text>
+<text x="96.0" y="579" font-size="18" text-anchor="middle" fill="#52514e">1</text>
+<text x="533.0" y="579" font-size="18" text-anchor="middle" fill="#52514e">2</text>
+<text x="970.0" y="579" font-size="18" text-anchor="middle" fill="#52514e">4</text>
+<text x="533.0" y="613" font-size="19" text-anchor="middle" fill="#52514e">cores given to the model</text>
+<text x="96" y="132" font-size="18" fill="#52514e">requests per second</text>
+<line x1="96.0" y1="483.5" x2="96.0" y2="442.2" stroke="#c4daf4" stroke-width="10" stroke-linecap="round"/>
+<line x1="533.0" y1="388.2" x2="533.0" y2="350.1" stroke="#c4daf4" stroke-width="10" stroke-linecap="round"/>
+<line x1="970.0" y1="346.9" x2="970.0" y2="264.3" stroke="#c4daf4" stroke-width="10" stroke-linecap="round"/>
+<line x1="96.0" y1="478.7" x2="96.0" y2="432.7" stroke="#f9d3c3" stroke-width="10" stroke-linecap="round"/>
+<line x1="533.0" y1="389.8" x2="533.0" y2="332.6" stroke="#f9d3c3" stroke-width="10" stroke-linecap="round"/>
+<line x1="970.0" y1="312.4" x2="970.0" y2="238.9" stroke="#f9d3c3" stroke-width="10" stroke-linecap="round"/>
+<polyline points="96.0,445.4 533.0,362.8 970.0,273.9" fill="none" stroke="#2a78d6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="96.0" cy="445.4" r="6" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="533.0" cy="362.8" r="6" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="970.0" cy="273.9" r="6" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="108.0" y="429.4" font-size="18" font-weight="600" text-anchor="start" fill="#0b0b0b">25.6</text>
+<text x="533.0" y="346.8" font-size="18" font-weight="600" text-anchor="middle" fill="#0b0b0b">46.4</text>
+<polyline points="96.0,448.5 533.0,381.8 970.0,281.8" fill="none" stroke="#eb6834" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="96.0" cy="448.5" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="533.0" cy="381.8" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="970.0" cy="281.8" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="108.0" y="480.5" font-size="18" font-weight="600" text-anchor="start" fill="#0b0b0b">24.8</text>
+<text x="533.0" y="413.8" font-size="18" font-weight="600" text-anchor="middle" fill="#0b0b0b">41.6</text>
+<circle cx="994" cy="267.9" r="6" fill="#2a78d6"/>
+<text x="1008" y="273.9" font-size="19" font-weight="600" fill="#0b0b0b">68.8</text>
+<text x="1008" y="295.9" font-size="16" fill="#52514e">1 worker, N threads</text>
+<circle cx="994" cy="319.9" r="6" fill="#eb6834"/>
+<text x="1008" y="325.9" font-size="19" font-weight="600" fill="#0b0b0b">66.8</text>
+<text x="1008" y="347.9" font-size="16" fill="#52514e">N workers, 1 thread</text>
+<text x="96" y="655" font-size="14" fill="#52514e">Points are the median of 3 runs, shaded bars show the lowest and highest run. Intel Core i5-8265U laptop (4 cores), load generator on the same machine.</text>
+</svg>

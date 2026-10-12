@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="Dynamic batching pays off only under load">
+<rect width="1200" height="675" fill="#fcfcfb"/>
+<text x="96" y="62" font-size="34" font-weight="700" fill="#0b0b0b">Dynamic batching pays off only under load</text>
+<text x="96" y="100" font-size="21" fill="#52514e">MNIST on finton, 2 workers. Batching : up to 8 requests, waiting at most 1 ms</text>
+<line x1="96" y1="547.0" x2="970" y2="547.0" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="553.0" font-size="18" text-anchor="end" fill="#52514e">0</text>
+<line x1="96" y1="480.8" x2="970" y2="480.8" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="486.8" font-size="18" text-anchor="end" fill="#52514e">2,500</text>
+<line x1="96" y1="414.7" x2="970" y2="414.7" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="420.7" font-size="18" text-anchor="end" fill="#52514e">5,000</text>
+<line x1="96" y1="348.5" x2="970" y2="348.5" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="354.5" font-size="18" text-anchor="end" fill="#52514e">7,500</text>
+<line x1="96" y1="282.3" x2="970" y2="282.3" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="288.3" font-size="18" text-anchor="end" fill="#52514e">10,000</text>
+<line x1="96" y1="216.2" x2="970" y2="216.2" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="222.2" font-size="18" text-anchor="end" fill="#52514e">12,500</text>
+<line x1="96" y1="150.0" x2="970" y2="150.0" stroke="#e6e5e1" stroke-width="1"/>
+<text x="82" y="156.0" font-size="18" text-anchor="end" fill="#52514e">15,000</text>
+<text x="96.0" y="579" font-size="18" text-anchor="middle" fill="#52514e">1</text>
+<text x="387.3" y="579" font-size="18" text-anchor="middle" fill="#52514e">4</text>
+<text x="678.7" y="579" font-size="18" text-anchor="middle" fill="#52514e">16</text>
+<text x="970.0" y="579" font-size="18" text-anchor="middle" fill="#52514e">64</text>
+<text x="533.0" y="613" font-size="19" text-anchor="middle" fill="#52514e">clients sending at the same time</text>
+<text x="96" y="132" font-size="18" fill="#52514e">requests per second</text>
+<line x1="96.0" y1="532.5" x2="96.0" y2="532.2" stroke="#c4daf4" stroke-width="10" stroke-linecap="round"/>
+<line x1="387.3" y1="499.8" x2="387.3" y2="497.3" stroke="#c4daf4" stroke-width="10" stroke-linecap="round"/>
+<line x1="678.7" y1="375.8" x2="678.7" y2="331.0" stroke="#c4daf4" stroke-width="10" stroke-linecap="round"/>
+<line x1="970.0" y1="285.2" x2="970.0" y2="224.7" stroke="#c4daf4" stroke-width="10" stroke-linecap="round"/>
+<line x1="96.0" y1="502.9" x2="96.0" y2="499.5" stroke="#f9d3c3" stroke-width="10" stroke-linecap="round"/>
+<line x1="387.3" y1="401.4" x2="387.3" y2="323.2" stroke="#f9d3c3" stroke-width="10" stroke-linecap="round"/>
+<line x1="678.7" y1="362.7" x2="678.7" y2="289.4" stroke="#f9d3c3" stroke-width="10" stroke-linecap="round"/>
+<line x1="970.0" y1="341.3" x2="970.0" y2="310.3" stroke="#f9d3c3" stroke-width="10" stroke-linecap="round"/>
+<polyline points="96.0,532.5 387.3,499.6 678.7,333.5 970.0,265.8" fill="none" stroke="#2a78d6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="96.0" cy="532.5" r="6" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="387.3" cy="499.6" r="6" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="678.7" cy="333.5" r="6" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="970.0" cy="265.8" r="6" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="108.0" y="564.5" font-size="18" font-weight="600" text-anchor="start" fill="#0b0b0b">549</text>
+<text x="387.3" y="531.6" font-size="18" font-weight="600" text-anchor="middle" fill="#0b0b0b">1,792</text>
+<polyline points="96.0,500.3 387.3,339.5 678.7,312.4 970.0,320.5" fill="none" stroke="#eb6834" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="96.0" cy="500.3" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="387.3" cy="339.5" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="678.7" cy="312.4" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="970.0" cy="320.5" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="108.0" y="484.3" font-size="18" font-weight="600" text-anchor="start" fill="#0b0b0b">1,766</text>
+<text x="387.3" y="323.5" font-size="18" font-weight="600" text-anchor="middle" fill="#0b0b0b">7,842</text>
+<circle cx="994" cy="259.8" r="6" fill="#2a78d6"/>
+<text x="1008" y="265.8" font-size="19" font-weight="600" fill="#0b0b0b">10,626</text>
+<text x="1008" y="287.8" font-size="16" fill="#52514e">batch up to 8</text>
+<circle cx="994" cy="314.5" r="6" fill="#eb6834"/>
+<text x="1008" y="320.5" font-size="19" font-weight="600" fill="#0b0b0b">8,558</text>
+<text x="1008" y="342.5" font-size="16" fill="#52514e">no batching</text>
+<text x="96" y="655" font-size="14" fill="#52514e">Points are the median of 3 runs, shaded bars show the lowest and highest run. Intel Core i5-8265U laptop (4 cores), load generator on the same machine.</text>
+</svg>

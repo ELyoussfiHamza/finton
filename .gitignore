@@ -17,3 +17,6 @@ Thumbs.db
 
 # large model, downloaded separately (see README)
 /models/mobilenet/
+
+# announcement drafts
+/launch/

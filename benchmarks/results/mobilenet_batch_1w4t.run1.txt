@@ -1,0 +1,6 @@
+model models/mobilenet/model.onnx | fixed : batch 8, delay 5 ms, workers 1, threads 4, clients 16 | 10 s per run
+     batch   requests/s   mean ms    p50 ms    p95 ms    p99 ms  avg batch  rejected
+         1        55.80    288.35    262.25    390.90    412.13          1         0
+         2        57.20    278.72    269.35    381.03    396.01          2         0
+         4        64.40    247.12    242.21    299.79    313.06          4         0
+         8        68.80    232.69    219.64    281.71    312.74    7.97895         0

@@ -5,26 +5,74 @@
 <h1 align="center">finton</h1>
 
 <p align="center">
-  <b>A dynamic-batching inference server in C++20, for ordinary CPUs.</b><br>
-  Inspired by NVIDIA Triton Inference Server. No GPU required.
+  <b>A dynamic-batching inference server for ordinary CPUs, written in C++20.</b><br>
+  Inspired by NVIDIA Triton Inference Server. No GPU, no framework, one binary.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/C%2B%2B-20-blue" alt="C++20">
   <img src="https://img.shields.io/badge/platform-Linux-lightgrey" alt="Linux">
-  <img src="https://img.shields.io/badge/status-work%20in%20progress-orange" alt="Work in progress">
+  <img src="https://img.shields.io/badge/runtime-ONNX%20Runtime-green" alt="ONNX Runtime">
+  <img src="https://img.shields.io/badge/license-MIT-black" alt="MIT license">
   <a href="https://x.com/helyoussfii"><img src="https://img.shields.io/badge/follow-%40helyoussfii-black?logo=x" alt="Follow @helyoussfii on X"></a>
 </p>
 
 ---
 
-finton receives inference requests over HTTP, groups them into batches, and runs each batch on a pool of worker threads.
+finton serves an ONNX model over HTTP. It groups the requests that arrive together into one batch, runs the batch in a single call to the model, and sends each client its own answer.
 
-The name is *fin* + *ton*: in Moroccan Darija, *fin* means "where" and *ton* is tuna, the kind sold in a can. Hence the monkey asking where his tuna went.
+```bash
+./finton --model my_model.onnx
+```
 
-It exists to study one question: **how do batch size and waiting time trade latency against throughput?** Both are exposed as plain numbers, so every setting between "answer at once" and "fill the batch" can be tried and measured.
+I built it to answer one question with measurements instead of folklore: **what does dynamic batching really buy you on a CPU?** The two settings that control it, the maximum batch size and the maximum delay, are plain numbers on the command line, so every point between "answer at once" and "fill the batch" can be tried.
 
-> **Status.** finton serves a real model end to end: HTTP in, batching, one ONNX Runtime call per batch, HTTP out. It ships with an MNIST digit classifier as the example model. Measurements and multi-model support are next.
+The name is *fin* + *ton*. In Moroccan Darija, *fin* means "where" and *ton* is tuna, the kind sold in a can. Hence the monkey asking where his tuna went.
+
+## What the measurements say
+
+Three findings, from a 4-core laptop. Every number is the median of three runs; the full tables are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+
+### 1. Batching pays off only under load
+
+<p align="center"><img src="benchmarks/charts/mnist_load.svg" alt="Throughput with and without batching, by number of clients" width="820"></p>
+
+On a small model (MNIST), with batches of up to 8 and a 1 ms delay:
+
+| Clients | No batching | Batching | Difference |
+|---|---|---|---|
+| 1 | 1,766 requests/s | 549 requests/s | 3.2 times slower |
+| 4 | 7,842 requests/s | 1,792 requests/s | 4.4 times slower |
+| 16 | 8,865 requests/s | 8,066 requests/s | about the same |
+| 64 | 8,558 requests/s | 10,626 requests/s | 24% faster |
+
+With few clients a batch can never fill, so every request waits the full delay for company that never comes. With many clients the batches fill at once and one call to the model does the work of eight. The delay is the price; the load decides whether you get anything for it.
+
+### 2. A batch larger than the load can fill costs throughput
+
+<p align="center"><img src="benchmarks/charts/mnist_batch.svg" alt="Throughput by maximum batch size" width="820"></p>
+
+With 32 clients and 2 workers, batch sizes from 2 to 8 all land between 9,400 and 9,900 requests/s. At 16 the throughput drops to 6,700, and at 32 to 5,800. A large batch lets one worker take most of the waiting requests while the other has little to do. The maximum batch size has to be chosen against the load, not set as high as possible.
+
+The maximum delay had no measurable effect in this test: between 0 and 5 ms the throughput stayed around 11,000 requests/s, because under this load the batches fill before the delay matters.
+
+### 3. On a heavier model, cores matter more than batching
+
+<p align="center"><img src="benchmarks/charts/mobilenet_cores.svg" alt="MobileNetV2 throughput by number of cores" width="820"></p>
+
+MobileNetV2 takes a 224 × 224 colour image and needs tens of milliseconds per call. Here:
+
+- Going from 1 to 4 cores multiplied the throughput by about 2.7, from 25 to 68 requests/s.
+- It made no difference whether the cores were used as 4 workers with 1 thread each, or 1 worker with 4 threads inside the model.
+- Batching showed no clear gain. The differences between batch sizes of 1, 2, 4 and 8 were smaller than the spread between two runs of the same setting.
+
+A plausible reading: on a CPU the cost of this model grows in step with the batch, so there is little fixed cost for a batch to share. On the small model the fixed cost per request is a large part of the total, which is why batching helps there.
+
+### How to read these numbers
+
+- The load generator ran on the same laptop as the server and competes for the same 4 cores.
+- A laptop CPU changes speed with temperature. Each chart shows the lowest and highest run as a shaded bar, and some are wide.
+- Two models on one machine is not a general law. The scripts are in the repository so the experiment can be repeated elsewhere: see [Measuring](#measuring).
 
 ## How it works
 
@@ -42,8 +90,8 @@ flowchart LR
 1. An HTTP thread reads and parses a request, then submits it to the scheduler.
 2. The request waits in a bounded queue. If the queue is full, the client gets a `503` at once.
 3. A free worker asks the scheduler for a batch. The scheduler fills it until it reaches the maximum batch size, or until the oldest request has waited the maximum delay.
-4. The worker runs the whole batch in one call to the backend.
-5. Each request's promise is fulfilled, which wakes its HTTP thread, and the response goes back to the client.
+4. The worker joins the inputs into one tensor and runs the whole batch in a single call to the model.
+5. The output is split per request. Each request's promise is fulfilled, which wakes its HTTP thread, and the response goes back to the client.
 
 The reasons behind each decision are in [design/arch.md](design/arch.md).
 
@@ -53,8 +101,15 @@ The reasons behind each decision are in [design/arch.md](design/arch.md).
 
 - Dynamic batching driven by two settings: maximum batch size and maximum delay
 - Thread-safe bounded queue that refuses work when full instead of growing
-- Workers pull batches when they are free, so batch size adapts to the load
+- Workers pull batches when they are free, so the batch size adapts to the load
 - One promise and future per request, with no shared result table
+
+**Model backend**
+
+- Runs any ONNX model with one float input and one float output
+- Reads the input name, shape and size from the model: no configuration file
+- One model call per batch; models with a fixed batch size of 1 still work, one call per request
+- Refuses an unsupported model at startup with a clear message
 
 **HTTP server**
 
@@ -65,21 +120,24 @@ The reasons behind each decision are in [design/arch.md](design/arch.md).
 - Timeouts for silent clients
 - Graceful shutdown on `Ctrl-C`: every request already received is answered
 
-**Not built yet**
-
-- A model repository and several models at once
-- Models with more than one input or output
-
 ## Quick start
 
 You need Linux, CMake 3.22 or newer, and a C++20 compiler (GCC 13 recommended). The first configure downloads ONNX Runtime (about 8 MB) and a JSON library; nothing has to be installed by hand.
 
 ```bash
+git clone https://github.com/ELyoussfiHamza/finton.git
+cd finton
 cmake -S . -B build-release -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release -DFINTON_TSAN=OFF
 cmake --build build-release
-./build-release/finton                                   # MNIST example model, port 3001
-./build-release/finton --port 8080 --model my_model.onnx # your own model
-./build-release/finton --help                            # every option
+./build-release/finton
+```
+
+It starts on port 3001 with the example model, an MNIST digit classifier, and prints what it understood:
+
+```
+Model models/mnist/model.onnx | input Input3 : float32 [N, 1, 28, 28], 784 floats per request | output Plus214_Output_0 | batching yes | threads per inference default
+Settings | batch 8 | delay 5 ms | workers 2 | queue 64 | http threads 64
+finton is listening on port 3001
 ```
 
 From another terminal:
@@ -94,13 +152,15 @@ $ head -c 3136 /dev/zero | curl -s http://localhost:3001/infer --data-binary @- 
       0.08432205    -0.054540414
 ```
 
-The example model recognises handwritten digits. The request body is one 28 × 28 grayscale image as 784 raw 32-bit floats (3,136 bytes, here an all-black image). The response is 10 raw floats, one score per digit from 0 to 9; the highest score is the model's answer.
+The request body is one 28 × 28 grayscale image as 784 raw 32-bit floats (3,136 bytes, here an all-black image). The response is 10 raw floats, one score per digit from 0 to 9; the highest score is the model's answer.
 
-Requests that arrive together are run as one batch, with a single call to the model:
+### Your own model
 
 ```bash
-for i in $(seq 32); do head -c 3136 /dev/zero | curl -s -o /dev/null http://localhost:3001/infer --data-binary @- & done; wait
+./build-release/finton --model path/to/model.onnx --port 8080
 ```
+
+finton supports models with one float input and one float output, where only the first dimension (the batch) is flexible. That covers most image classifiers. The startup line tells you how many floats a request must contain.
 
 ## HTTP API
 
@@ -112,16 +172,14 @@ for i in $(seq 32); do head -c 3136 /dev/zero | curl -s -o /dev/null http://loca
 | Status | Meaning |
 |---|---|
 | `200` | Success |
-| `400` | The request is not valid HTTP, or the body of `/infer` is not the number of floats the model expects |
+| `400` | The request is not valid HTTP, or the body is not the number of floats the model expects |
 | `404` | Unknown method or path |
 | `413` | `Content-Length` is over the body limit |
 | `431` | The headers are over the header limit |
-| `500` | Unexpected error while handling the request |
+| `500` | The model failed on this batch, or another unexpected error |
 | `503` | The server is overloaded: the queue is full, or every HTTP thread is busy |
 
-## Configuration
-
-Settings are command-line options:
+## Options
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -134,13 +192,13 @@ Settings are command-line options:
 | `--queue` | 64 | Requests that can wait in the scheduler. Beyond this: `503` |
 | `--http-threads` | 64 | HTTP threads, which is also the most requests in flight |
 
+Three rules of thumb, the first two straight from the measurements above:
+
+- Under light load, use `--delay-ms 0`. A delay only pays when enough requests arrive to fill the batch.
+- Keep `--batch` at or below the number of requests that are usually waiting.
+- Keep `--http-threads` above `--batch` × `--workers`, and `--workers` × `--threads` at or below the number of cores.
+
 The size limits (8 KB for headers, 10 MB for a body), the 5 second timeout for silent clients and the waiting line for connections are set in [`src/header/server.hpp`](src/header/server.hpp).
-
-finton reads the input name, shape and size from the model itself and prints what it found at startup. It supports models with one float input and one float output, where only the batch dimension is flexible.
-
-`--batch 1` with `--delay-ms 0` favours latency. A large batch with a long delay favours throughput.
-
-Keep `--http-threads` above `--batch` × `--workers`. Each HTTP thread sleeps while its request is in the scheduler, so with fewer threads the batches can never fill.
 
 ## Measuring
 
@@ -161,24 +219,28 @@ tools/sweep.sh batch "1 2 4 8 16 32"
 CLIENTS=64 WORKERS=4 tools/sweep.sh delay-ms "0 1 5 20"
 ```
 
-There are two example models. MNIST is included and is tiny (784 floats in, well under a millisecond per call), so the cost of HTTP and threads dominates. MobileNetV2 is downloaded separately (14 MB) and is a 224 × 224 colour image classifier (150,528 floats in, tens of milliseconds per call), so the model dominates:
+When finton stops it prints how many batches it ran and their average size, which shows whether the batches really filled.
+
+### Reproducing the results above
+
+MobileNetV2 is not stored in the repository (14 MB). Download it once, then run everything:
 
 ```bash
 mkdir -p models/mobilenet
 curl -L -o models/mobilenet/model.onnx https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-12.onnx
-MODEL=models/mobilenet/model.onnx CLIENTS=16 tools/sweep.sh batch "1 2 4 8"
+
+benchmarks/run_all.sh              # every sweep, three times : about 20 minutes
+python3 benchmarks/make_charts.py  # tables and charts, standard library only
 ```
 
-When finton stops it prints how many batches it ran and their average size, which shows whether the batches really filled.
-
-Always measure with the release build. Keep `--workers` × `--threads` at or below the number of cores, and remember that the load generator uses cores too when it runs on the same machine.
+Always measure with the release build, on a machine that is doing nothing else.
 
 ## Build configurations
 
 | Configuration | Command | Use it for |
 |---|---|---|
+| Release | `cmake -S . -B build-release -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release -DFINTON_TSAN=OFF` | Running and measuring |
 | Sanitized (default) | `cmake -S . -B build -DCMAKE_CXX_COMPILER=g++-13` | Correctness. ThreadSanitizer reports data races |
-| Release | `cmake -S . -B build-release -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release -DFINTON_TSAN=OFF` | Timing |
 
 Follow either with `cmake --build <directory>`.
 
@@ -201,7 +263,7 @@ The tests cover the HTTP parser: valid requests, incomplete requests, malformed 
 
 ```
 src/
-  main.cpp           wires the scheduler, the workers and the server
+  main.cpp           options, and the wiring of backend, scheduler, workers and server
   header/            class declarations
     request.hpp        a request, its response, and the promise that links them
     queue.hpp          thread-safe bounded queue
@@ -214,24 +276,41 @@ src/
   lib/               implementations
 tests/               parser tests
 tools/               load generator and sweep script
+benchmarks/          benchmark script, raw results, charts
 models/              example model (MNIST digit classifier)
 design/              design document, diagrams and logo
 ```
+
+## Limits
+
+- One model per server.
+- One input and one output per model, both 32-bit floats. Text models, which take several integer inputs of varying length, are refused at startup.
+- An HTTP thread is held by its connection, even when the client is idle between two requests.
+- Linux only.
 
 ## Roadmap
 
 - [x] Queue, scheduler and worker pool
 - [x] HTTP front end
-- [x] Request payloads as raw bytes (`application/octet-stream`)
-- [x] Real backend with ONNX Runtime
-- [x] Real batching: one tensor and one model call per batch
-- [ ] Measurements on a real model
-- [ ] Several models, each with its own scheduler
+- [x] Request payloads as raw bytes
+- [x] Real backend with ONNX Runtime, one model call per batch
+- [x] Measurements on real models
+- [ ] Models with several inputs and outputs, and a request format that describes them
+- [ ] Several models at once, each with its own scheduler
+- [ ] A model metadata endpoint
+- [ ] A Docker image and prebuilt releases
+- [ ] An event loop (`epoll`) in place of one thread per connection
 
 ## About
 
 finton is a learning project by Hamza Elyoussfi, built to understand how inference serving works under the hood.
 
-The scheduling core (queue, scheduler, workers) is written by hand. The HTTP layer, the build files, the tests and the documentation were written with AI assistance.
+**What was written by hand.** The scheduling core (queue, scheduler, workers), the batching logic of the ONNX backend, and the first version of the HTTP server: the socket setup, the accept loop, reading a request that arrives in pieces, and the size limits.
+
+**What was written with AI assistance (Claude).** The HTTP thread pool, keep-alive and graceful shutdown; the model-agnostic part of the backend; the load generator and benchmark scripts; the build files, the tests and the documentation. The design decisions were taken together and are explained in the design document.
 
 Follow the progress on X: [@helyoussfii](https://x.com/helyoussfii)
+
+## License
+
+[MIT](LICENSE)

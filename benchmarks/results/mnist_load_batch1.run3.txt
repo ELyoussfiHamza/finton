@@ -1,0 +1,6 @@
+model models/mnist/model.onnx | fixed : batch 1, delay 0 ms, workers 2, threads 1, clients 32 | 8 s per run
+   clients   requests/s   mean ms    p50 ms    p95 ms    p99 ms  avg batch  rejected
+         1      1794.75      0.56      0.54      0.73      0.96          1         0
+         4      5502.38      0.73      0.58      1.45      3.06          1         0
+        16      6965.12      2.30      2.14      3.62      5.65          1         0
+        64      7773.38      8.23      7.91     11.31     15.17          1         0

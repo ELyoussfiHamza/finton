@@ -248,7 +248,7 @@ int Server::StartServer(){
         HttpThreads.emplace_back(&Server::ConnectionLoop, this);
     }
 
-    std::cout << "Your wonderful hand written lol server is listening on " << Config.Port << std::endl;
+    std::cout << "finton is listening on port " << Config.Port << std::endl;
     //accept loop
     struct pollfd fds[2] = {{ServerSocket, POLLIN, 0}, {StopFd, POLLIN, 0}};
     while (true){
